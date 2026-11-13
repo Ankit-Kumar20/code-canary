@@ -44,64 +44,90 @@ dependency-canary/
 └── README.md
 ```
 
-## 🚀 Quick Start
+## 🚀 Getting Started (Contributors)
 
 ### Prerequisites
 
 - Node.js 18+
-- pnpm 8+
-- Optional: OpenAI API key for production embeddings
+- pnpm 8+ (`corepack enable` or `npm i -g pnpm@8`)
+- Python 3.10+ (`python3` must be on your PATH; the API calls it for real repo scans)
+- Git
+- Optional: OpenAI API key, Modal account
 
-### Installation
+### 1. Clone and install JavaScript dependencies
 
 ```bash
-# Clone the repository
 git clone <your-repo-url>
-cd dependency-canary
-
-# Install all dependencies
+cd code-canary
 pnpm install
-
-# Build shared packages
-pnpm -r build
 ```
 
-### Development Setup
+### 2. Set up Python (used by the API's scanner bridge)
+
+In development the API runs `python3 apps/api/python/bridge.py` to analyze real repositories, so install its dependencies in a virtualenv:
 
 ```bash
-# Seed the system with mock data
-pnpm seed:mock
-
-# Start both frontend and API in development mode
-pnpm dev
-
-# Or start individually:
-pnpm --filter @dependency-canary/web dev     # Frontend: http://localhost:3000
-pnpm --filter @dependency-canary/api dev     # API: http://localhost:3001
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r apps/api/requirements.txt
 ```
 
-### Environment Variables
+Keep the virtualenv activated in the terminal where you run `pnpm dev`, so the API spawns the right `python3`. If the bridge fails, the API falls back to mock data.
 
-Create `.env.local` files in both `apps/web` and `apps/api`:
+### 3. Configure environment variables
+
+Next.js reads env files from each app's own folder, not the repo root. Copy the template into both apps:
 
 ```bash
-# Optional: Real Modal endpoints
-MODAL_BASE_URL=https://your-modal-deployment.com
-
-# Optional: OpenAI for embeddings (defaults to mock)
-OPENAI_API_KEY=sk-...
-
-# Optional: Vector store configuration
-VECTOR_STORE_TYPE=memory|sqlite|pinecone
-SQLITE_DB_PATH=./vector-store.db
-PINECONE_API_KEY=...
-PINECONE_INDEX=...
+cp .env.example apps/api/.env.local
+cp .env.example apps/web/.env.local
 ```
 
-**Default Behavior (No Env Vars):**
-- Uses mock Modal client with realistic test data
-- Uses mock embedder with deterministic vectors
-- Uses in-memory vector store
+All values are optional. Leave them empty to run fully on mock data.
+
+| Variable | Purpose |
+|---|---|
+| `MODAL_BASE_URL`, `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET` | Real Modal scan services |
+| `OPENAI_API_KEY` | Real embeddings and LLM answers (otherwise mocked) |
+| `VECTOR_STORE_TYPE` | `memory` (default), `sqlite`, or `pinecone` |
+| `SQLITE_DB_PATH` | SQLite file when using `sqlite` |
+| `PINECONE_API_KEY`, `PINECONE_INDEX` | Pinecone settings |
+| `USE_PYTHON_BRIDGE` | `true` to use the Python scanner outside development |
+| `SKIP_EMBEDDINGS` | `true` to skip embedding generation |
+
+Never commit `.env` or `.env.local` files; they are gitignored.
+
+### 4. Build, seed, and run
+
+```bash
+pnpm -r build      # build shared packages
+pnpm seed:mock     # load mock data
+pnpm dev           # web on http://localhost:3000, API on http://localhost:3001
+```
+
+Run one app at a time with:
+
+```bash
+pnpm --filter @dependency-canary/web dev
+pnpm --filter @dependency-canary/api dev
+```
+
+### 5. Check your changes before opening a PR
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+```
+
+### Contribution workflow
+
+1. Create a branch: `git checkout -b feature/short-description`
+2. Make your changes and run the checks above
+3. Commit with a clear message and push your branch
+4. Open a pull request describing what changed and how you tested it
+
+Don't commit build output, `node_modules/`, `.venv/`, `__pycache__/`, or secrets.
 
 ## 🎯 Usage Workflow
 
