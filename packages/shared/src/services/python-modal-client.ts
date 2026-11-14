@@ -1,23 +1,38 @@
-import { spawn } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
 import { ScanRequest, ScanResponse, EnrichResponse } from '../types/api';
 import { ModalClient } from './modal-client';
 
 // Simple in-memory cache to store project references by job ID
 const projectReferenceCache = new Map<string, string>();
 
+// Safe dynamic module loader to prevent Next.js client Webpack bundling from choking on Node built-ins
+function getSafeNodeModule(moduleName: string): any {
+  if (typeof (globalThis as any).window !== 'undefined') {
+    return null;
+  }
+  try {
+    return typeof (globalThis as any).__non_webpack_require__ !== 'undefined'
+      ? (globalThis as any).__non_webpack_require__(moduleName)
+      : eval('require')(moduleName);
+  } catch {
+    return null;
+  }
+}
+
 export class PythonModalClient implements ModalClient {
-  private pythonBridgePath: string;
+  private pythonBridgePath: string = '';
 
   constructor() {
     // Path to the Python bridge script
     // Adjust path based on where the code is running from
-    const apiDir = process.cwd().includes('apps/api') 
-      ? process.cwd() 
-      : path.join(process.cwd(), 'apps/api');
-    
-    this.pythonBridgePath = path.join(apiDir, 'python/bridge.py');
+    const nodePath = getSafeNodeModule('path');
+    if (nodePath && typeof process !== 'undefined' && process.cwd) {
+      const apiDir = process.cwd().includes('apps/api') 
+        ? process.cwd() 
+        : nodePath.join(process.cwd(), 'apps/api');
+      this.pythonBridgePath = nodePath.join(apiDir, 'python/bridge.py');
+    } else {
+      this.pythonBridgePath = 'apps/api/python/bridge.py';
+    }
   }
 
   async scan(request: ScanRequest): Promise<ScanResponse> {
@@ -57,34 +72,65 @@ export class PythonModalClient implements ModalClient {
       
       return result as EnrichResponse;
     } catch (error) {
-      console.error('Python enrich failed, falling back to mock:', error);
-      // Clean up cache entry even on error
       projectReferenceCache.delete(jobId);
-      // Fallback to mock data
-      return this.getMockEnrichResponse();
+      console.error('Python real repository enrichment failed:', error);
+      throw error;
     }
   }
 
+  private getPythonExecutable(): string {
+    if (process.env.PYTHON_PATH) {
+      return process.env.PYTHON_PATH;
+    }
+    const fs = getSafeNodeModule('fs');
+    const path = getSafeNodeModule('path');
+    if (fs && path && typeof process !== 'undefined' && process.cwd) {
+      const candidatePaths = [
+        path.resolve(process.cwd(), '.venv/bin/python'),
+        path.resolve(process.cwd(), '.venv/bin/python3'),
+        path.resolve(process.cwd(), '../..', '.venv/bin/python'),
+        path.resolve(process.cwd(), '../..', '.venv/bin/python3'),
+        path.resolve(process.cwd(), 'apps/api', '.venv/bin/python'),
+      ];
+      for (const p of candidatePaths) {
+        if (fs.existsSync(p)) {
+          return p;
+        }
+      }
+    }
+    return 'python3';
+  }
+
   private async executePythonBridge(command: string, args: string[]): Promise<any> {
+    const cp = getSafeNodeModule('child_process');
+    if (!cp || !cp.spawn) {
+      throw new Error('child_process.spawn is not available in browser runtime environment');
+    }
+
+    const pythonBin = this.getPythonExecutable();
+
     return new Promise((resolve, reject) => {
       const pythonArgs = [this.pythonBridgePath, command, ...args];
-      const python = spawn('python3', pythonArgs, {
+      const python = cp.spawn(pythonBin, pythonArgs, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env }
+        env: {
+          ...process.env,
+          MODAL_CONFIG_PATH: process.env.MODAL_CONFIG_PATH || '/tmp/modal.toml'
+        }
       });
 
       let stdout = '';
       let stderr = '';
 
-      python.stdout.on('data', (data) => {
+      python.stdout.on('data', (data: any) => {
         stdout += data.toString();
       });
 
-      python.stderr.on('data', (data) => {
+      python.stderr.on('data', (data: any) => {
         stderr += data.toString();
       });
 
-      python.on('close', (code) => {
+      python.on('close', (code: any) => {
         if (code !== 0) {
           reject(new Error(`Python bridge failed with code ${code}: ${stderr}`));
           return;
@@ -98,7 +144,7 @@ export class PythonModalClient implements ModalClient {
         }
       });
 
-      python.on('error', (error) => {
+      python.on('error', (error: any) => {
         reject(new Error(`Failed to spawn Python process: ${error.message}`));
       });
     });

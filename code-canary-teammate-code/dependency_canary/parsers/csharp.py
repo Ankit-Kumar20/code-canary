@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 C# manifest parser for NuGet projects.
 """

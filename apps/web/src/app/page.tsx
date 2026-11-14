@@ -2,21 +2,22 @@
 
 import { useMemo, useState } from 'react';
 import {
-  ScanRequest,
-  EnrichedSBOM,
-  AgentAnswer,
-  Package,
-  Vulnerability,
+  type ScanRequest,
+  type EnrichedSBOM,
+  type AgentAnswer,
+  type Package,
+  type Vulnerability,
+  DEMO_SBOM,
 } from '@dependency-canary/shared';
 import DependencyGraphViz from '@/components/dependency-graph-viz';
 import QAPanel from '@/components/qa-panel';
+import IdeSolutionBox, { VulnRowCopyButton, PackageDetailCopyButton } from '@/components/ide-solution-box';
 
 const API = 'http://localhost:3001/api';
 
 type View = 'overview' | 'packages' | 'vulnerabilities' | 'graph' | 'agent';
 type Severity = Vulnerability['severity'];
 type RefType = ScanRequest['refType'];
-
 
 const SEVERITIES: Severity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const SEVERITY_RANK: Record<Severity, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
@@ -27,18 +28,18 @@ const SEVERITY_LABEL: Record<Severity, string> = {
   LOW: 'Low',
 };
 
-const VIEWS: { id: View; label: string; icon: JSX.Element }[] = [
-  { id: 'overview', label: 'Overview', icon: <IconGrid /> },
-  { id: 'packages', label: 'Packages', icon: <IconBox /> },
-  { id: 'vulnerabilities', label: 'Vulnerabilities', icon: <IconShield /> },
-  { id: 'graph', label: 'Dependency graph', icon: <IconGraph /> },
-  { id: 'agent', label: 'Ask agent', icon: <IconSpark /> },
+const VIEWS: { id: View; label: string; icon: (active: boolean) => JSX.Element }[] = [
+  { id: 'overview', label: 'Overview', icon: active => <IconGrid active={active} /> },
+  { id: 'packages', label: 'Packages', icon: active => <IconBox active={active} /> },
+  { id: 'vulnerabilities', label: 'Vulnerabilities', icon: active => <IconShield active={active} /> },
+  { id: 'graph', label: 'Dependency Graph', icon: active => <IconGraph active={active} /> },
+  { id: 'agent', label: 'Security Agent', icon: active => <IconSpark active={active} /> },
 ];
 
-const REF_TYPES: { id: RefType; label: string; placeholder: string }[] = [
-  { id: 'git', label: 'Git', placeholder: 'https://github.com/user/repo' },
-  { id: 'zip', label: 'ZIP', placeholder: 'https://example.com/project.zip' },
-  { id: 'image', label: 'Image', placeholder: 'nginx:latest' },
+const REF_TYPES: { id: RefType; label: string; placeholder: string; icon: JSX.Element }[] = [
+  { id: 'git', label: 'Git Repository', placeholder: 'https://github.com/owner/repository', icon: <IconGit /> },
+  { id: 'zip', label: 'ZIP Archive', placeholder: 'https://example.com/project.zip', icon: <IconZip /> },
+  { id: 'image', label: 'Container Image', placeholder: 'nginx:latest or node:20-alpine', icon: <IconContainer /> },
 ];
 
 function worstSeverity(pkg: Package): Severity | null {
@@ -57,6 +58,7 @@ export default function HomePage() {
   const [selected, setSelected] = useState<Package | null>(null);
   const [refType, setRefType] = useState<RefType>('git');
   const [ref, setRef] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
 
   const handleScan = async (request: ScanRequest) => {
     setLoading(true);
@@ -70,7 +72,7 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
       });
-      if (!scanResponse.ok) throw new Error(`Scan failed: ${scanResponse.statusText}`);
+      if (!scanResponse.ok) throw new Error(`Scan request failed: ${scanResponse.statusText}`);
 
       const { jobId } = await scanResponse.json();
 
@@ -83,7 +85,7 @@ export default function HomePage() {
           break;
         }
       }
-      if (!enrichResult) throw new Error('The scan timed out after 60 seconds. Try again or scan a smaller project.');
+      if (!enrichResult) throw new Error('The scan timed out after 60 seconds. Try scanning a smaller project or check the API service.');
 
       setSBOM(enrichResult);
       setView('overview');
@@ -109,14 +111,14 @@ export default function HomePage() {
     if (!sbom) return;
     const response = await fetch(`${API}/report?projectId=${sbom.projectId}&format=pdf`);
     if (!response.ok) {
-      setError('The report could not be generated. Check that the API is running on port 3001.');
+      setError('The report could not be generated. Please ensure the API server is active on port 3001.');
       return;
     }
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dependency-report-${sbom.projectId}.pdf`;
+    a.download = `security-audit-${sbom.projectId}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -130,37 +132,153 @@ export default function HomePage() {
   };
 
   const currentView = VIEWS.find(v => v.id === view)!;
+  const criticalCount = sbom?.summary.counts.critical ?? 0;
+  const highCount = sbom?.summary.counts.high ?? 0;
 
   return (
-    <div className="flex h-dvh overflow-hidden text-[13px]">
-      {/* Sidebar */}
-      <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-sidebar">
-        <div className="flex h-12 items-center gap-2 px-4">
-          <span className="grid h-5 w-5 place-items-center rounded-[5px] bg-accent text-[11px] font-semibold text-white">
-            C
-          </span>
-          <span className="font-medium">Dependency Canary</span>
+    <div className="flex h-screen overflow-hidden text-[13px] bg-canvas text-ink antialiased">
+      {/* -------------------- Collapsible Left Sidebar -------------------- */}
+      <aside
+        className={`relative flex shrink-0 flex-col border-r border-line bg-sidebar select-none transition-all duration-200 ease-in-out ${collapsed ? 'w-16 items-center' : 'w-64'
+          }`}
+      >
+        {/* Reddit-style Circular Hamburger Straddling the Vertical Border Line */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(c => !c)}
+          className="absolute right-0 top-[72px] translate-x-1/2 z-30 flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface text-ink-muted shadow-sm transition-all duration-150 hover:bg-hover hover:text-ink hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <IconMenu />
+        </button>
+
+        {/* Brand Header */}
+        <div
+          className={`flex h-14 w-full items-center border-b border-line ${collapsed ? 'justify-center px-0' : 'justify-between px-4'
+            }`}
+        >
+          {!collapsed ? (
+            <div className="flex items-center gap-2.5 min-w-0 pr-4">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-[12px] font-bold text-white shadow-sm">
+                C
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[13px] font-semibold tracking-tight text-ink leading-tight truncate">Code Canary</span>
+                <span className="text-[11px] text-ink-faint truncate">Security & SBOM</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-[12px] font-bold text-white shadow-sm">
+              C
+            </div>
+          )}
         </div>
 
-        <div className="px-2 pb-2">
-          <button
-            type="button"
-            onClick={() => {
-              setSBOM(null);
-              setError(null);
-              setSelected(null);
-            }}
-            className="flex h-8 w-full items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-ink shadow-[0_1px_1px_rgba(15,23,42,0.04)] transition-colors duration-150 hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            <IconPlus />
-            New scan
-          </button>
+        {/* Action: New Project Button */}
+        <div className={`w-full border-b border-line-subtle ${collapsed ? 'py-3 flex justify-center' : 'py-3 pl-3 pr-6'}`}>
+          {!collapsed ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSBOM(null);
+                setError(null);
+                setSelected(null);
+              }}
+              className="flex h-9 w-full items-center justify-between rounded-lg border border-line bg-surface px-3 text-[12.5px] font-medium text-ink shadow-sm transition-all duration-150 hover:bg-hover hover:border-line-strong active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <div className="flex items-center gap-2">
+                <IconPlus />
+                <span>New Project</span>
+              </div>
+              <kbd className="rounded border border-line bg-canvas px-1.5 py-0.5 text-[10px] font-mono text-ink-faint">
+                ⌘N
+              </kbd>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setSBOM(null);
+                setError(null);
+                setSelected(null);
+              }}
+              title="New Project (⌘N)"
+              aria-label="New Project"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-ink shadow-sm hover:bg-hover hover:border-line-strong active:scale-[0.98] transition-all"
+            >
+              <IconPlus />
+            </button>
+          )}
         </div>
 
-        <nav aria-label="Project views" className="flex flex-col gap-px px-2">
-          <p className="px-2 pb-1 pt-3 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-faint">
-            {sbom ? sbom.projectId : 'No project'}
-          </p>
+        {/* Project Card in Sidebar */}
+        {!collapsed ? (
+          <div className="w-full px-3 pt-3 pb-1">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint px-1 mb-1.5">
+              Current Project
+            </div>
+            <div className="rounded-lg border border-line bg-surface p-2.5 shadow-sm">
+              <div className="font-mono text-[12px] font-semibold text-ink truncate" title={sbom ? sbom.projectId : 'No active audit'}>
+                {sbom ? sbom.projectId : 'No active audit'}
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
+                {sbom ? (
+                  criticalCount > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-critical-bg text-critical px-1.5 py-0.5 font-medium text-[10.5px]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-critical" />
+                      {criticalCount} Critical CVE{criticalCount > 1 ? 's' : ''}
+                    </span>
+                  ) : highCount > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-high-bg text-high px-1.5 py-0.5 font-medium text-[10.5px]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-high" />
+                      {highCount} High CVE{highCount > 1 ? 's' : ''}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded bg-success-bg text-success px-1.5 py-0.5 font-medium text-[10.5px]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                      Clean / Safe
+                    </span>
+                  )
+                ) : (
+                  <span className="text-ink-faint">Ready to analyze</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="py-2.5 flex justify-center w-full">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-surface shadow-sm cursor-pointer"
+              title={
+                sbom
+                  ? `${sbom.projectId} (${criticalCount > 0 ? `${criticalCount} Critical` : highCount > 0 ? `${highCount} High` : 'Clean'})`
+                  : 'No active audit'
+              }
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${criticalCount > 0
+                    ? 'bg-critical ring-2 ring-critical/20'
+                    : highCount > 0
+                      ? 'bg-high ring-2 ring-high/20'
+                      : 'bg-success ring-2 ring-success/20'
+                  }`}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Section */}
+        <nav
+          aria-label="Project views"
+          className={`flex flex-1 flex-col gap-1 w-full ${collapsed ? 'items-center py-2' : 'px-3 pt-2'}`}
+        >
+          {!collapsed && (
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint px-1 py-1">
+              Navigation
+            </div>
+          )}
+
           {VIEWS.map(item => {
             const active = sbom && view === item.id;
             const count =
@@ -169,6 +287,32 @@ export default function HomePage() {
                 : item.id === 'vulnerabilities'
                   ? sbom?.summary.counts.vulns
                   : undefined;
+
+            if (collapsed) {
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={!sbom}
+                  title={`${item.label}${count !== undefined ? ` (${count})` : ''}`}
+                  aria-label={item.label}
+                  onClick={() => {
+                    setView(item.id);
+                    setSelected(null);
+                  }}
+                  className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-30 ${active
+                      ? 'bg-accent/10 text-accent font-semibold shadow-sm'
+                      : 'text-ink-muted hover:bg-hover hover:text-ink'
+                    }`}
+                >
+                  <span>{item.icon(!!active)}</span>
+                  {count !== undefined && count > 0 && item.id === 'vulnerabilities' && (
+                    <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-critical ring-2 ring-sidebar" />
+                  )}
+                </button>
+              );
+            }
+
             return (
               <button
                 key={item.id}
@@ -179,61 +323,106 @@ export default function HomePage() {
                   setView(item.id);
                   setSelected(null);
                 }}
-                className={`flex h-7 items-center gap-2 rounded-md px-2 text-left transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:text-ink-faint ${
-                  active ? 'bg-hover font-medium text-ink' : 'text-ink-muted enabled:hover:bg-hover enabled:hover:text-ink'
-                }`}
+                className={`group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-left text-[12.5px] transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 ${active
+                    ? 'bg-accent/10 font-semibold text-accent shadow-sm'
+                    : 'text-ink-muted hover:bg-hover hover:text-ink font-medium'
+                  }`}
               >
-                <span className="text-ink-faint">{item.icon}</span>
+                <span className={`transition-colors duration-150 ${active ? 'text-accent' : 'text-ink-faint group-hover:text-ink'}`}>
+                  {item.icon(!!active)}
+                </span>
                 <span className="flex-1 truncate">{item.label}</span>
-                {count !== undefined && <span className="tabular-nums text-ink-faint">{count}</span>}
+                {count !== undefined && (
+                  <span
+                    className={`tabular-nums rounded-full font-mono px-2 py-0.5 text-[11px] font-semibold ${active
+                        ? 'bg-accent/20 text-accent'
+                        : item.id === 'vulnerabilities' && count > 0
+                          ? 'bg-critical-bg text-critical'
+                          : 'bg-canvas text-ink-faint'
+                      }`}
+                  >
+                    {count}
+                  </span>
+                )}
               </button>
             );
           })}
         </nav>
 
-        {sbom && (
-          <div className="mt-auto border-t border-line px-4 py-3 text-[12px] text-ink-faint">
-            Scanned {new Date(sbom.generatedAt).toLocaleString()}
-          </div>
-        )}
+        {/* Sidebar Footer */}
+        <div className={`border-t border-line bg-sidebar w-full ${collapsed ? 'py-3 flex justify-center' : 'px-4 py-3'}`}>
+          {!collapsed ? (
+            <div className="flex items-center justify-between text-[11px] text-ink-faint">
+              <span className="flex items-center gap-1.5">
+                <IconClock />
+                <span>Status</span>
+              </span>
+              <span className="font-mono text-[11px] text-ink-muted">
+                {sbom ? new Date(sbom.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Idle'}
+              </span>
+            </div>
+          ) : (
+            <span className="text-ink-faint cursor-pointer" title={sbom ? `Audited: ${new Date(sbom.generatedAt).toLocaleTimeString()}` : 'Idle'}>
+              <IconClock />
+            </span>
+          )}
+        </div>
       </aside>
 
-      {/* Main */}
-      <div className="flex min-w-0 flex-1 flex-col bg-surface">
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-line px-5">
-          <div className="flex items-center gap-1.5 text-ink-muted">
+      {/* -------------------- Main Workspace Viewport -------------------- */}
+      <div className="flex min-w-0 flex-1 flex-col bg-surface overflow-hidden">
+        {/* Top Header Bar */}
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-line px-8 bg-surface">
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-2 text-[13px]">
             {sbom ? (
               <>
-                <span>{sbom.projectId}</span>
-                <span className="text-ink-faint">›</span>
-                <span className="font-medium text-ink">{currentView.label}</span>
+                <span className="font-mono text-ink-muted text-[12px] bg-canvas px-2.5 py-1 rounded-md border border-line">
+                  {sbom.projectId}
+                </span>
+                <span className="text-ink-faint">/</span>
+                <span className="font-semibold text-ink">{currentView.label}</span>
               </>
             ) : (
-              <span className="font-medium text-ink">New scan</span>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-accent" />
+                <span className="font-semibold text-ink">New Dependency Scan</span>
+              </div>
             )}
           </div>
+
+          {/* Action Buttons */}
           {sbom && (
             <button
               type="button"
               onClick={handleGenerateReport}
-              className="flex h-7 items-center gap-1.5 rounded-md border border-line px-2.5 text-ink transition-colors duration-150 hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="flex h-9 items-center gap-2 rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-medium text-ink shadow-sm transition-all duration-150 hover:bg-hover hover:border-line-strong active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
             >
               <IconDownload />
-              Download report
+              <span>Export PDF Report</span>
             </button>
           )}
         </header>
 
+        {/* Global Error Banner */}
         {error && (
-          <div role="alert" className="flex items-center gap-2 border-b border-line bg-[color-mix(in_oklch,var(--critical)_8%,white)] px-5 py-2 text-critical">
+          <div
+            role="alert"
+            className="flex items-center gap-3 border-b border-critical-border bg-critical-bg px-8 py-2.5 text-[12.5px] text-critical"
+          >
             <IconAlert />
-            <span className="flex-1">{error}</span>
-            <button type="button" onClick={() => setError(null)} className="text-ink-muted hover:text-ink">
+            <span className="flex-1 font-medium">{error}</span>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="rounded px-2 py-0.5 text-critical hover:bg-critical/10 font-semibold transition-colors"
+            >
               Dismiss
             </button>
           </div>
         )}
 
+        {/* Workspace Body Area */}
         <div className="flex min-h-0 flex-1">
           <main className="min-w-0 flex-1 overflow-y-auto">
             {!sbom ? (
@@ -255,25 +444,29 @@ export default function HomePage() {
             ) : view === 'packages' ? (
               <PackageList packages={sbom.packages} selected={selected} onOpen={setSelected} />
             ) : view === 'vulnerabilities' ? (
-              <VulnerabilityList packages={sbom.packages} onOpen={setSelected} />
+              <VulnerabilityList packages={sbom.packages} onOpen={setSelected} projectId={sbom.projectId} />
             ) : view === 'graph' ? (
-              <div className="p-5">
+              <div className="p-8 max-w-7xl mx-auto">
                 <DependencyGraphViz sbom={sbom} />
               </div>
             ) : (
-              <div className="mx-auto max-w-3xl p-5">
+              <div className="p-8 max-w-4xl mx-auto">
                 <QAPanel projectId={sbom.projectId} onAsk={handleAsk} />
               </div>
             )}
           </main>
 
-          {sbom && selected && <PackageDetail pkg={selected} onClose={() => setSelected(null)} />}
+          {/* Slide-over Package Detail Drawer */}
+          {sbom && selected && <PackageDetail pkg={selected} onClose={() => setSelected(null)} projectId={sbom.projectId} />}
         </div>
       </div>
     </div>
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*                                EmptyScan                                   */
+/* -------------------------------------------------------------------------- */
 function EmptyScan({
   loading,
   refType,
@@ -295,13 +488,28 @@ function EmptyScan({
 
   if (loading) {
     return (
-      <div className="px-5 py-4" aria-busy="true" aria-live="polite">
-        <p className="mb-4 text-ink-muted">Resolving the dependency graph and checking advisories…</p>
-        <div className="flex flex-col gap-px">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex h-9 items-center gap-3">
-              <div className="h-3.5 w-3.5 animate-pulse rounded bg-hover" />
-              <div className="h-3 animate-pulse rounded bg-hover" style={{ width: `${30 + ((i * 17) % 40)}%` }} />
+      <div className="mx-auto flex max-w-lg flex-col items-center justify-center px-6 pt-[16vh] text-center" aria-busy="true" aria-live="polite">
+        <div className="relative mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+          <div className="absolute inset-0 animate-ping rounded-2xl bg-accent/20" />
+          <IconShieldCheck />
+        </div>
+        <h2 className="text-[18px] font-bold text-ink">Analyzing Dependency Tree</h2>
+        <p className="mt-1 text-[13px] text-ink-muted leading-relaxed">
+          Building SBOM, querying advisory databases, and verifying supply chain trust…
+        </p>
+
+        <div className="mt-8 flex w-full flex-col gap-2 rounded-xl border border-line bg-surface p-4 shadow-sm">
+          {[
+            { label: 'Resolving manifest lockfiles & graph nodes', done: true },
+            { label: 'Fetching vulnerability advisories (NVD & OSV)', done: true },
+            { label: 'Evaluating license compliance & maintainer risk', done: false },
+          ].map((step, i) => (
+            <div key={i} className="flex items-center gap-3 py-1.5 text-left text-[12px]">
+              <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${step.done ? 'bg-accent text-white' : 'border border-line animate-pulse'}`}>
+                {step.done ? '✓' : ''}
+              </span>
+              <span className={step.done ? 'text-ink font-medium' : 'text-ink-faint'}>{step.label}</span>
+              {!step.done && <span className="ml-auto text-[11px] font-mono text-accent animate-pulse">Running…</span>}
             </div>
           ))}
         </div>
@@ -310,16 +518,27 @@ function EmptyScan({
   }
 
   return (
-    <div className="mx-auto flex max-w-[520px] flex-col gap-6 px-5 pt-[14vh]">
-      <div className="flex flex-col gap-1.5">
-        <h1 className="text-[20px] font-semibold tracking-[-0.01em]">Scan a project</h1>
-        <p className="max-w-[65ch] text-ink-muted">
-          Build a full SBOM, flag known vulnerabilities and supply-chain risks, and get a minimal patch plan.
+    <div className="mx-auto flex max-w-xl flex-col gap-8 px-6 pt-[12vh]">
+      {/* Title */}
+      <div className="flex flex-col gap-2 text-center items-center">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/5 px-3 py-0.5 text-[11px] font-semibold text-accent uppercase tracking-wider">
+          AI-Powered SBOM & Advisory Engine
+        </div>
+        <h1 className="text-[28px] font-bold tracking-tight text-ink">
+          Audit Project Dependencies
+        </h1>
+        <p className="max-w-md text-[13.5px] text-ink-muted leading-relaxed">
+          Uncover vulnerabilities, pinpoint supply-chain risks, inspect transitive links, and generate actionable remediation plans.
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 rounded-[10px] border border-line bg-surface p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_12px_rgba(15,23,42,0.04)]">
-        <div role="radiogroup" aria-label="Source type" className="flex gap-1 rounded-md bg-sidebar p-0.5">
+      {/* Main Scan Form Card */}
+      <form
+        onSubmit={onSubmit}
+        className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-card"
+      >
+        {/* Source Type Selector */}
+        <div role="radiogroup" aria-label="Source type" className="grid grid-cols-3 gap-1 rounded-lg bg-canvas p-1 border border-line">
           {REF_TYPES.map(t => (
             <button
               key={t.id}
@@ -327,48 +546,80 @@ function EmptyScan({
               role="radio"
               aria-checked={refType === t.id}
               onClick={() => setRefType(t.id)}
-              className={`h-7 flex-1 rounded-[5px] transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${
-                refType === t.id ? 'bg-surface font-medium text-ink shadow-[0_1px_2px_rgba(15,23,42,0.08)]' : 'text-ink-muted hover:text-ink'
-              }`}
+              className={`flex h-8 items-center justify-center gap-1.5 rounded-md text-[12px] font-medium transition-all duration-150 ${refType === t.id
+                  ? 'bg-surface text-ink font-semibold shadow-sm'
+                  : 'text-ink-muted hover:text-ink hover:bg-hover'
+                }`}
             >
-              {t.label}
+              <span className={refType === t.id ? 'text-accent' : 'text-ink-faint'}>{t.icon}</span>
+              <span>{t.label}</span>
             </button>
           ))}
         </div>
-        <label htmlFor="ref" className="sr-only">
-          {refType === 'git' ? 'Repository URL' : refType === 'zip' ? 'ZIP file URL' : 'Container image'}
-        </label>
-        <div className="flex gap-2">
-          <input
-            id="ref"
-            type="text"
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            placeholder={current.placeholder}
-            autoComplete="off"
-            spellCheck={false}
-            className="h-9 min-w-0 flex-1 rounded-md border border-line bg-surface px-3 text-[16px] text-ink placeholder:text-ink-faint hover:border-[rgba(15,23,42,0.16)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[color-mix(in_oklch,var(--accent)_20%,transparent)] sm:text-[13px]"
-          />
+
+        {/* Input & Submit */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
+              <IconLink />
+            </span>
+            <input
+              id="ref"
+              type="text"
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              placeholder={current.placeholder}
+              autoComplete="off"
+              spellCheck={false}
+              className="h-10 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-[13px] text-ink placeholder:text-ink-faint transition-all duration-150 hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+          </div>
           <button
             type="submit"
             disabled={!value.trim()}
-            className="h-9 rounded-md bg-accent px-3.5 font-medium text-white transition-[background-color,transform] duration-150 hover:bg-accent-hover active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-hover disabled:text-ink-faint"
+            className="flex h-10 items-center justify-center gap-2 rounded-lg bg-accent px-5 text-[13px] font-semibold text-white shadow transition-all duration-150 hover:bg-accent-hover active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint disabled:shadow-none"
           >
-            Start scan
+            <span>Run Audit</span>
+            <IconArrowRight />
           </button>
         </div>
       </form>
 
-      <p className="text-ink-muted">
-        No project handy?{' '}
-        <button type="button" onClick={onDemo} className="font-medium text-accent underline-offset-2 hover:underline">
-          Open the sample project
-        </button>
-      </p>
+      {/* Demo Link & Props */}
+      <div className="flex flex-col items-center gap-4 text-center">
+        <p className="text-[12.5px] text-ink-muted">
+          Want to test right now?{' '}
+          <button
+            type="button"
+            onClick={onDemo}
+            className="font-semibold text-accent underline underline-offset-4 hover:text-accent-hover transition-colors"
+          >
+            Load sample repository audit
+          </button>
+        </p>
+
+        <div className="grid grid-cols-3 gap-3 w-full pt-4 border-t border-line text-left">
+          <div className="flex flex-col gap-0.5 p-3 rounded-lg border border-line-subtle bg-canvas/40">
+            <span className="text-[12px] font-semibold text-ink">CycloneDX SBOM</span>
+            <span className="text-[11px] text-ink-faint">Complete manifest hierarchy</span>
+          </div>
+          <div className="flex flex-col gap-0.5 p-3 rounded-lg border border-line-subtle bg-canvas/40">
+            <span className="text-[12px] font-semibold text-ink">CVE & GHSA Feed</span>
+            <span className="text-[11px] text-ink-faint">Live vulnerability scoring</span>
+          </div>
+          <div className="flex flex-col gap-0.5 p-3 rounded-lg border border-line-subtle bg-canvas/40">
+            <span className="text-[12px] font-semibold text-ink">AI Security Agent</span>
+            <span className="text-[11px] text-ink-faint">Guided remediation plans</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*                                 Overview                                   */
+/* -------------------------------------------------------------------------- */
 function Overview({
   sbom,
   onOpen,
@@ -380,83 +631,193 @@ function Overview({
 }) {
   const { counts, topRisks } = sbom.summary;
   const stats = [
-    { label: 'Packages', value: counts.packages, sub: `${counts.direct} direct · ${counts.transitive} transitive` },
-    { label: 'Critical', value: counts.critical, sub: 'Fix immediately', tone: counts.critical ? 'text-critical' : '' },
-    { label: 'High', value: counts.high, sub: 'Fix this sprint', tone: counts.high ? 'text-high' : '' },
-    { label: 'Vulnerabilities', value: counts.vulns, sub: `${counts.medium ?? 0} medium · ${counts.low ?? 0} low` },
+    {
+      label: 'Total Packages',
+      value: counts.packages,
+      sub: `${counts.direct} direct · ${counts.transitive} transitive`,
+      badge: 'Manifest',
+      badgeTone: 'bg-canvas text-ink-muted border border-line',
+      tone: 'text-ink',
+    },
+    {
+      label: 'Critical CVEs',
+      value: counts.critical,
+      sub: counts.critical > 0 ? 'Fix immediately' : 'No critical risks',
+      badge: counts.critical > 0 ? 'Urgent' : 'Clean',
+      badgeTone: counts.critical > 0 ? 'bg-critical-bg text-critical border border-critical-border' : 'bg-success-bg text-success border border-success/20',
+      dot: counts.critical > 0 ? 'bg-critical' : 'bg-success',
+      tone: counts.critical > 0 ? 'text-critical' : 'text-ink',
+    },
+    {
+      label: 'High Severity',
+      value: counts.high,
+      sub: counts.high > 0 ? 'Fix this sprint' : 'No high risks',
+      badge: counts.high > 0 ? 'Review' : 'Clear',
+      badgeTone: counts.high > 0 ? 'bg-high-bg text-high border border-high-border' : 'bg-success-bg text-success border border-success/20',
+      dot: counts.high > 0 ? 'bg-high' : 'bg-success',
+      tone: counts.high > 0 ? 'text-high' : 'text-ink',
+    },
+    {
+      label: 'Vulnerabilities',
+      value: counts.vulns,
+      sub: `${counts.medium ?? 0} med · ${counts.low ?? 0} low`,
+      badge: counts.vulns > 0 ? `${counts.vulns} Total` : 'None',
+      badgeTone: 'bg-canvas text-ink-muted border border-line',
+      tone: 'text-ink',
+    },
   ];
+
   const byName = new Map(sbom.packages.map(p => [`${p.name}@${p.version}`, p]));
 
   return (
-    <div className="flex flex-col gap-8 px-5 py-5">
-      <div className="grid grid-cols-2 overflow-hidden rounded-[10px] border border-line lg:grid-cols-4">
-        {stats.map((s, i) => (
-          <div key={s.label} className={`flex flex-col gap-1 p-4 ${i > 0 ? 'border-l border-line' : ''}`}>
-            <span className="text-ink-muted">{s.label}</span>
-            <span className={`text-[24px] font-semibold tabular-nums tracking-[-0.02em] ${s.tone ?? ''}`}>{s.value}</span>
-            <span className="text-[12px] text-ink-faint">{s.sub}</span>
+    <div className="flex flex-col gap-5 p-8 max-w-7xl mx-auto">
+      {/* ⚡ 1-Click IDE Fix Prompt Box */}
+      <IdeSolutionBox sbom={sbom} />
+
+      {/* 4 Compact Stat Tiles (Sleek, Clean, High Density) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {stats.map(s => (
+          <div
+            key={s.label}
+            className="flex flex-col justify-between rounded-lg border border-line bg-surface px-3.5 py-2.5 shadow-subtle hover:border-line-strong transition-all"
+          >
+            <div className="flex items-center justify-between text-ink-muted">
+              <span className="text-[11.5px] font-medium text-ink-muted">{s.label}</span>
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.badgeTone}`}>
+                {s.dot && <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />}
+                {s.badge}
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2 mt-1.5">
+              <span className={`text-[22px] font-bold tabular-nums tracking-tight leading-none ${s.tone}`}>
+                {s.value}
+              </span>
+              <span className="text-[11px] text-ink-faint truncate font-medium">
+                {s.sub}
+              </span>
+            </div>
           </div>
         ))}
       </div>
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between">
-          <h2 className="font-medium">Top risks</h2>
-          <button type="button" onClick={() => onNavigate('vulnerabilities')} className="text-ink-muted hover:text-ink">
-            View all vulnerabilities
+      {/* ----------------- Priority Targets Table (Strictly Aligned) ----------------- */}
+      <section className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-[14px] font-bold text-ink">Priority Vulnerability Targets</h2>
+            <span className="rounded-full bg-line-subtle px-2 py-0.5 text-[11px] font-semibold text-ink-muted">
+              {topRisks.length} flagged
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('vulnerabilities')}
+            className="text-[12.5px] font-medium text-accent hover:text-accent-hover transition-colors"
+          >
+            View all vulnerabilities →
           </button>
         </div>
+
         {topRisks.length === 0 ? (
-          <p className="rounded-[10px] border border-dashed border-line px-4 py-6 text-center text-ink-muted">
-            No risky packages found. Re-scan after dependency changes to stay covered.
-          </p>
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-line py-8 text-center bg-canvas/30">
+            <span className="text-emerald-500 mb-1"><IconShieldCheck /></span>
+            <p className="text-[13px] font-medium text-ink">No high-risk security flaws discovered</p>
+            <p className="text-[12px] text-ink-faint mt-0.5">All examined dependencies pass current baseline security checks.</p>
+          </div>
         ) : (
-          <ul className="overflow-hidden rounded-[10px] border border-line">
-            {topRisks.map((risk, i) => {
-              const pkg = byName.get(`${risk.package}@${risk.version}`);
-              return (
-                <li key={i} className={i > 0 ? 'border-t border-line' : ''}>
-                  <button
-                    type="button"
-                    disabled={!pkg}
-                    onClick={() => pkg && onOpen(pkg)}
-                    className="flex h-11 w-full items-center gap-3 px-4 text-left transition-colors duration-150 enabled:hover:bg-canvas"
-                  >
-                    <SeverityIcon severity={pkg ? worstSeverity(pkg) : null} />
-                    <span className="font-medium">{risk.package}</span>
-                    <span className="font-mono text-[12px] text-ink-faint">{risk.version}</span>
-                    <span className="flex-1 truncate text-ink-muted">{risk.reason}</span>
-                    <RiskMeter score={risk.score} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="overflow-hidden rounded-lg border border-line">
+            {/* Header: Strict CSS Grid 3 Columns */}
+            <div className="grid grid-cols-[240px_1fr_130px] items-center gap-4 px-5 py-2.5 border-b border-line bg-canvas text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+              <span>Package</span>
+              <span>Root Cause / Advisory</span>
+              <span className="text-right">Risk Score</span>
+            </div>
+
+            {/* Rows: Matching Exactly the Same CSS Grid 3 Columns */}
+            <ul className="divide-y divide-line">
+              {topRisks.map((risk, i) => {
+                const pkg = byName.get(`${risk.package}@${risk.version}`);
+                const worst = pkg ? worstSeverity(pkg) : null;
+                return (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      disabled={!pkg}
+                      onClick={() => pkg && onOpen(pkg)}
+                      className="group grid grid-cols-[240px_1fr_130px] items-center gap-4 w-full px-5 py-2.5 text-left transition-colors duration-150 enabled:hover:bg-hover/60"
+                    >
+                      {/* Col 1: Severity + Package Name + Version Tag Inline */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <SeverityIcon severity={worst} />
+                        <span className="font-semibold text-ink truncate group-hover:text-accent transition-colors text-[13px]">
+                          {risk.package}
+                        </span>
+                        <span className="font-mono text-[10.5px] text-ink-faint rounded bg-canvas px-1.5 py-0.5 border border-line-subtle shrink-0">
+                          {risk.version}
+                        </span>
+                      </div>
+
+                      {/* Col 2: Reason / Summary */}
+                      <div className="truncate text-[12.5px] text-ink-muted pr-2">
+                        {risk.reason}
+                      </div>
+
+                      {/* Col 3: Risk Score Bar + Percentage (Right-aligned) */}
+                      <div className="flex items-center justify-end">
+                        <RiskMeter score={risk.score} />
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="font-medium">Environment</h2>
-        <dl className="grid grid-cols-[120px_1fr] gap-y-2 text-ink-muted">
-          <dt>Languages</dt>
-          <dd className="flex flex-wrap gap-1">{sbom.metadata.languages.map(l => <Tag key={l}>{l}</Tag>)}</dd>
-          <dt>Services</dt>
-          <dd className="flex flex-wrap gap-1">{sbom.metadata.services.map(s => <Tag key={s}>{s}</Tag>)}</dd>
-        </dl>
+      {/* ----------------- Detected Runtime & Services ----------------- */}
+      <section className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-5 shadow-sm">
+        <h2 className="text-[14px] font-bold text-ink">Detected Runtime & Services</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[12.5px]">
+          <div className="flex flex-col gap-2 rounded-lg border border-line p-3 bg-canvas/30">
+            <span className="font-semibold text-ink-muted text-[11px] uppercase tracking-wider">Programming Languages</span>
+            <div className="flex flex-wrap gap-1.5">
+              {sbom.metadata.languages.map(l => (
+                <span
+                  key={l}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 font-medium text-ink text-[11.5px] shadow-sm"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  {l}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-lg border border-line p-3 bg-canvas/30">
+            <span className="font-semibold text-ink-muted text-[11px] uppercase tracking-wider">Discovered Services</span>
+            <div className="flex flex-wrap gap-1.5">
+              {sbom.metadata.services.map(s => (
+                <span
+                  key={s}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 font-medium text-ink text-[11.5px] shadow-sm"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   );
 }
 
-function GroupHeader({ label, count }: { label: string; count: number }) {
-  return (
-    <div className="sticky top-0 z-10 flex h-9 items-center gap-2 border-b border-line bg-sidebar px-5">
-      <span className="font-medium">{label}</span>
-      <span className="tabular-nums text-ink-faint">{count}</span>
-    </div>
-  );
-}
-
+/* -------------------------------------------------------------------------- */
+/*                               PackageList                                  */
+/* -------------------------------------------------------------------------- */
 function PackageList({
   packages,
   selected,
@@ -466,161 +827,426 @@ function PackageList({
   selected: Package | null;
   onOpen: (p: Package) => void;
 }) {
-  const sorted = useMemo(
-    () =>
-      [...packages].sort(
-        (a, b) =>
-          (SEVERITY_RANK[worstSeverity(b) ?? 'LOW'] + (b.vulns?.length ? 1 : 0)) -
-            (SEVERITY_RANK[worstSeverity(a) ?? 'LOW'] + (a.vulns?.length ? 1 : 0)) || a.name.localeCompare(b.name),
-      ),
-    [packages],
-  );
-  const groups = [
-    { label: 'Direct', items: sorted.filter(p => p.direct) },
-    { label: 'Transitive', items: sorted.filter(p => !p.direct) },
-  ].filter(g => g.items.length);
+  const [filter, setFilter] = useState('');
+  const [tab, setTab] = useState<'all' | 'direct' | 'transitive' | 'vulns'>('all');
+
+  const filtered = useMemo(() => {
+    return packages
+      .filter(p => {
+        if (tab === 'direct' && !p.direct) return false;
+        if (tab === 'transitive' && p.direct) return false;
+        if (tab === 'vulns' && (!p.vulns || p.vulns.length === 0)) return false;
+        if (!filter.trim()) return true;
+        const q = filter.toLowerCase();
+        return p.name.toLowerCase().includes(q) || p.version.toLowerCase().includes(q);
+      })
+      .sort((a, b) => {
+        const rankA = (SEVERITY_RANK[worstSeverity(a) ?? 'LOW'] || 0) + (a.vulns?.length ? 2 : 0);
+        const rankB = (SEVERITY_RANK[worstSeverity(b) ?? 'LOW'] || 0) + (b.vulns?.length ? 2 : 0);
+        return rankB - rankA || a.name.localeCompare(b.name);
+      });
+  }, [packages, filter, tab]);
 
   return (
-    <div>
-      {groups.map(g => (
-        <section key={g.label}>
-          <GroupHeader label={g.label} count={g.items.length} />
-          <ul>
-            {g.items.map(pkg => {
+    <div className="flex flex-col gap-5 p-8 max-w-7xl mx-auto">
+      <div className="rounded-xl border border-line bg-surface shadow-sm overflow-hidden">
+        {/* Search Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-line bg-surface">
+          <div className="relative min-w-[280px] flex-1 sm:max-w-md">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
+              <IconSearch />
+            </span>
+            <input
+              type="text"
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              placeholder="Search package name or version…"
+              className="h-9 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-[12.5px] text-ink placeholder:text-ink-faint transition-all duration-150 hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+          </div>
+
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1 rounded-lg border border-line bg-canvas p-1 text-[11.5px]">
+            {(['all', 'direct', 'transitive', 'vulns'] as const).map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`rounded-md px-3 py-1 font-medium capitalize transition-all duration-150 ${tab === t ? 'bg-surface text-ink font-semibold shadow-sm' : 'text-ink-muted hover:text-ink'
+                  }`}
+              >
+                {t === 'vulns' ? 'With Vulnerabilities' : t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Aligned Table Header */}
+        <div className="grid grid-cols-[240px_110px_1fr_130px_90px] items-center gap-4 px-5 py-2.5 border-b border-line bg-canvas text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+          <span>Package Name</span>
+          <span>Version</span>
+          <span>License & Ecosystem</span>
+          <span>Dependency Type</span>
+          <span className="text-right">Advisories</span>
+        </div>
+
+        {/* Package Rows */}
+        {filtered.length === 0 ? (
+          <div className="py-16 text-center text-ink-muted">
+            <p className="text-[13.5px] font-semibold">No packages matching &ldquo;{filter}&rdquo;</p>
+            <p className="text-[12px] text-ink-faint mt-1">Try refining your search filter.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-line">
+            {filtered.map(pkg => {
               const isSelected = selected?.name === pkg.name && selected.version === pkg.version;
               const vulnCount = pkg.vulns?.length ?? 0;
+              const worst = worstSeverity(pkg);
+
               return (
-                <li key={`${pkg.name}@${pkg.version}`} className="border-b border-line">
+                <li key={`${pkg.name}@${pkg.version}`}>
                   <button
                     type="button"
                     onClick={() => onOpen(pkg)}
-                    className={`flex h-10 w-full items-center gap-3 px-5 text-left transition-colors duration-150 ${
-                      isSelected ? 'bg-hover' : 'hover:bg-canvas'
-                    }`}
+                    className={`group grid grid-cols-[240px_110px_1fr_130px_90px] items-center gap-4 w-full px-5 py-3 text-left transition-colors duration-150 ${isSelected ? 'bg-accent/8 border-l-2 border-accent' : 'hover:bg-hover/60'
+                      }`}
                   >
-                    <SeverityIcon severity={worstSeverity(pkg)} />
-                    <span className="truncate font-medium">{pkg.name}</span>
-                    <span className="font-mono text-[12px] text-ink-faint">{pkg.version}</span>
-                    <span className="flex-1" />
-                    {pkg.risk?.abandoned && <Tag>Abandoned</Tag>}
-                    {pkg.license && <span className="hidden text-ink-faint md:inline">{pkg.license}</span>}
-                    <Tag>{pkg.eco}</Tag>
-                    <span className={`w-16 text-right tabular-nums ${vulnCount ? 'text-ink' : 'text-ink-faint'}`}>
-                      {vulnCount ? `${vulnCount} vuln${vulnCount > 1 ? 's' : ''}` : '—'}
+                    {/* Col 1: Severity + Name */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <SeverityIcon severity={worst} />
+                      <span className="truncate font-semibold text-ink group-hover:text-accent transition-colors text-[13px]">
+                        {pkg.name}
+                      </span>
+                    </div>
+
+                    {/* Col 2: Version */}
+                    <span className="font-mono text-[11.5px] text-ink-faint truncate">
+                      v{pkg.version}
+                    </span>
+
+                    {/* Col 3: License & Eco */}
+                    <div className="flex items-center gap-2 truncate">
+                      {pkg.license && (
+                        <span className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10.5px] text-ink-muted">
+                          {pkg.license}
+                        </span>
+                      )}
+                      <span className="rounded bg-line-subtle px-1.5 py-0.5 font-mono text-[10.5px] text-ink-faint uppercase">
+                        {pkg.eco}
+                      </span>
+                    </div>
+
+                    {/* Col 4: Direct / Transitive */}
+                    <span className="text-[11.5px] text-ink-muted font-medium">
+                      {pkg.direct ? 'Direct manifest' : 'Transitive link'}
+                    </span>
+
+                    {/* Col 5: Vulnerabilities Count (Right-aligned) */}
+                    <span
+                      className={`text-right font-mono text-[11.5px] ${vulnCount > 0 ? 'text-critical font-bold' : 'text-ink-faint'
+                        }`}
+                    >
+                      {vulnCount ? `${vulnCount} vuln${vulnCount > 1 ? 's' : ''}` : '0'}
                     </span>
                   </button>
                 </li>
               );
             })}
           </ul>
-        </section>
-      ))}
+        )}
+      </div>
     </div>
   );
 }
 
-function VulnerabilityList({ packages, onOpen }: { packages: Package[]; onOpen: (p: Package) => void }) {
-  const rows = packages.flatMap(pkg => (pkg.vulns ?? []).map(v => ({ v, pkg })));
+/* -------------------------------------------------------------------------- */
+/*                            VulnerabilityList                               */
+/* -------------------------------------------------------------------------- */
+function VulnerabilityList({
+  packages,
+  onOpen,
+  projectId,
+}: {
+  packages: Package[];
+  onOpen: (p: Package) => void;
+  projectId: string;
+}) {
+  const [search, setSearch] = useState('');
+  const [severityFilter, setSeverityFilter] = useState<'ALL' | Severity>('ALL');
+
+  const rows = useMemo(() => {
+    return packages.flatMap(pkg => (pkg.vulns ?? []).map(v => ({ v, pkg })));
+  }, [packages]);
+
+  const countsBySev = useMemo(() => {
+    const counts: Record<string, number> = { ALL: rows.length, CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+    for (const r of rows) {
+      counts[r.v.severity] = (counts[r.v.severity] || 0) + 1;
+    }
+    return counts;
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    return rows
+      .filter(r => {
+        if (severityFilter !== 'ALL' && r.v.severity !== severityFilter) return false;
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return (
+          r.v.id.toLowerCase().includes(q) ||
+          r.v.summary.toLowerCase().includes(q) ||
+          r.pkg.name.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => b.v.cvss - a.v.cvss || SEVERITY_RANK[b.v.severity] - SEVERITY_RANK[a.v.severity]);
+  }, [rows, search, severityFilter]);
 
   if (rows.length === 0) {
     return (
-      <p className="px-5 py-10 text-center text-ink-muted">
-        No known vulnerabilities in this dependency graph.
-      </p>
+      <div className="p-8 max-w-7xl mx-auto">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-line bg-surface py-20 text-center shadow-sm">
+          <div className="h-10 w-10 text-emerald-500 mb-2">
+            <IconShieldCheck />
+          </div>
+          <h3 className="text-[15px] font-bold text-ink">Zero Vulnerabilities Discovered</h3>
+          <p className="text-[12.5px] text-ink-faint max-w-sm mt-1">
+            No CVE or GHSA security advisories apply to this project dependency graph.
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div>
-      {SEVERITIES.map(sev => {
-        const items = rows.filter(r => r.v.severity === sev).sort((a, b) => b.v.cvss - a.v.cvss);
-        if (!items.length) return null;
-        return (
-          <section key={sev}>
-            <GroupHeader label={SEVERITY_LABEL[sev]} count={items.length} />
-            <ul>
-              {items.map(({ v, pkg }) => (
-                <li key={`${v.id}-${pkg.name}`} className="border-b border-line">
-                  <button
-                    type="button"
-                    onClick={() => onOpen(pkg)}
-                    className="flex h-10 w-full items-center gap-3 px-5 text-left transition-colors duration-150 hover:bg-canvas"
-                  >
-                    <SeverityIcon severity={v.severity} />
-                    <span className="w-36 shrink-0 font-mono text-[12px] text-ink-muted">{v.id}</span>
-                    <span className="flex-1 truncate">{v.summary}</span>
-                    <Tag>
-                      {pkg.name}@{pkg.version}
-                    </Tag>
-                    <span className="w-10 text-right tabular-nums text-ink-muted">{v.cvss.toFixed(1)}</span>
-                  </button>
+    <div className="flex flex-col gap-5 p-8 max-w-7xl mx-auto">
+      {/* Search & Filter Card */}
+      <div className="rounded-xl border border-line bg-surface shadow-sm overflow-hidden">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-line bg-surface">
+          <div className="relative min-w-[280px] flex-1 sm:max-w-md">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
+              <IconSearch />
+            </span>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search CVE ID, package, or description…"
+              className="h-9 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-[12.5px] text-ink placeholder:text-ink-faint transition-all duration-150 hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+          </div>
+
+          {/* Severity Filter Tabs */}
+          <div className="flex items-center gap-1 rounded-lg border border-line bg-canvas p-1 text-[11.5px]">
+            {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map(sev => {
+              const count = countsBySev[sev] ?? 0;
+              const isActive = severityFilter === sev;
+              return (
+                <button
+                  key={sev}
+                  type="button"
+                  onClick={() => setSeverityFilter(sev)}
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-all duration-150 ${isActive
+                      ? 'bg-surface text-ink font-semibold shadow-sm'
+                      : 'text-ink-muted hover:text-ink'
+                    }`}
+                >
+                  <span className="capitalize">{sev === 'ALL' ? 'All' : sev.toLowerCase()}</span>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${isActive ? 'bg-line text-ink' : 'bg-line-subtle text-ink-faint'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Table Header: 6 Columns */}
+        <div className="grid grid-cols-[120px_160px_180px_1fr_90px_100px] items-center gap-4 px-5 py-2.5 border-b border-line bg-canvas text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+          <span>Severity</span>
+          <span>Advisory ID</span>
+          <span>Target Package</span>
+          <span>Vulnerability Summary</span>
+          <span className="text-right">CVSS Score</span>
+          <span className="text-right">IDE Fix</span>
+        </div>
+
+        {/* Table Rows */}
+        {filtered.length === 0 ? (
+          <div className="py-16 text-center text-ink-muted">
+            <p className="text-[13.5px] font-semibold">No advisories match this filter</p>
+            <p className="text-[12px] text-ink-faint mt-1">Try clearing your search query or selecting &ldquo;All&rdquo;.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-line">
+            {filtered.map(({ v, pkg }) => {
+              const sevBadgeClass =
+                v.severity === 'CRITICAL'
+                  ? 'bg-critical-bg text-critical border-critical-border'
+                  : v.severity === 'HIGH'
+                    ? 'bg-high-bg text-high border-high-border'
+                    : v.severity === 'MEDIUM'
+                      ? 'bg-medium-bg text-medium border-medium-border'
+                      : 'bg-low-bg text-low border-low-border';
+
+              return (
+                <li key={`${v.id}-${pkg.name}`}>
+                  <div className="group grid grid-cols-[120px_160px_180px_1fr_90px_100px] items-center gap-4 w-full px-5 py-3 transition-colors duration-150 hover:bg-hover/60">
+                    {/* Clickable area covers cols 1–5 */}
+                    <button
+                      type="button"
+                      onClick={() => onOpen(pkg)}
+                      className="col-span-5 grid grid-cols-[120px_160px_180px_1fr_90px] items-center gap-4 text-left"
+                    >
+                      {/* Col 1: Severity Badge */}
+                      <div className="flex items-center">
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider ${sevBadgeClass}`}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          {SEVERITY_LABEL[v.severity]}
+                        </span>
+                      </div>
+
+                      {/* Col 2: CVE ID */}
+                      <span className="font-mono text-[12px] font-bold text-ink group-hover:text-accent transition-colors">
+                        {v.id}
+                      </span>
+
+                      {/* Col 3: Target Package + Version Pill */}
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="font-semibold text-ink truncate text-[13px]">{pkg.name}</span>
+                        <span className="font-mono text-[10.5px] text-ink-faint rounded bg-canvas px-1.5 py-0.5 border border-line-subtle shrink-0">
+                          v{pkg.version}
+                        </span>
+                      </div>
+
+                      {/* Col 4: Summary */}
+                      <span className="truncate text-[12.5px] text-ink-muted pr-2">
+                        {v.summary}
+                      </span>
+
+                      {/* Col 5: CVSS Score */}
+                      <div className="text-right">
+                        <span
+                          className={`inline-block font-mono text-[11.5px] font-bold tabular-nums px-2 py-0.5 rounded ${v.cvss >= 9
+                              ? 'bg-critical-bg text-critical'
+                              : v.cvss >= 7
+                                ? 'bg-high-bg text-high'
+                                : 'bg-canvas text-ink-muted border border-line-subtle'
+                            }`}
+                        >
+                          {v.cvss.toFixed(1)}
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Col 6: ⚡ IDE Fix */}
+                    <div className="flex justify-end" onClick={e => e.stopPropagation()}>
+                      <VulnRowCopyButton pkg={pkg} vuln={v} projectId={projectId} />
+                    </div>
+                  </div>
                 </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
 
-function PackageDetail({ pkg, onClose }: { pkg: Package; onClose: () => void }) {
+/* -------------------------------------------------------------------------- */
+/*                               PackageDetail                                */
+/* -------------------------------------------------------------------------- */
+function PackageDetail({ pkg, onClose, projectId }: { pkg: Package; onClose: () => void; projectId: string }) {
   const vulns = [...(pkg.vulns ?? [])].sort((a, b) => b.cvss - a.cvss);
+
   return (
-    <aside aria-label={`${pkg.name} details`} className="flex w-[360px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface">
-      <div className="flex h-11 items-center justify-between border-b border-line px-4">
-        <span className="truncate font-medium">
-          {pkg.name} <span className="font-mono text-[12px] font-normal text-ink-faint">{pkg.version}</span>
-        </span>
+    <aside
+      aria-label={`${pkg.name} details`}
+      className="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-line bg-surface shadow-lg"
+    >
+      {/* Header */}
+      <div className="flex h-14 items-center justify-between border-b border-line px-6">
+        <div className="flex flex-col min-w-0 pr-2">
+          <span className="truncate text-[14px] font-bold text-ink">{pkg.name}</span>
+          <span className="font-mono text-[11.5px] text-ink-faint">v{pkg.version}</span>
+        </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close details"
-          className="grid h-7 w-7 place-items-center rounded-md text-ink-muted hover:bg-hover hover:text-ink"
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-hover hover:text-ink"
         >
           ✕
         </button>
       </div>
 
-      <dl className="grid grid-cols-[96px_1fr] gap-y-2.5 border-b border-line px-4 py-4">
+      {/* Metadata Key-Value List */}
+      <dl className="grid grid-cols-[110px_1fr] gap-y-3 border-b border-line px-6 py-5 text-[12.5px]">
         <dt className="text-ink-muted">Ecosystem</dt>
-        <dd>{pkg.eco}</dd>
-        <dt className="text-ink-muted">Type</dt>
-        <dd>{pkg.direct ? 'Direct' : 'Transitive'}</dd>
+        <dd className="font-mono font-medium text-ink uppercase">{pkg.eco}</dd>
+        <dt className="text-ink-muted">Requirement</dt>
+        <dd className="font-medium text-ink">{pkg.direct ? 'Direct manifest requirement' : 'Transitive dependency'}</dd>
         {pkg.license && (
           <>
             <dt className="text-ink-muted">License</dt>
-            <dd>{pkg.license}</dd>
+            <dd className="font-mono font-medium text-ink">{pkg.license}</dd>
           </>
         )}
         {pkg.risk && (
           <>
-            <dt className="text-ink-muted">Maintainers</dt>
-            <dd className="capitalize">{pkg.risk.maintainerTrust} trust</dd>
+            <dt className="text-ink-muted">Maintainer Trust</dt>
+            <dd className="capitalize font-medium text-ink">{pkg.risk.maintainerTrust} trust</dd>
           </>
         )}
-        <dt className="text-ink-muted">Depends on</dt>
-        <dd className="tabular-nums">{pkg.requires?.length ?? 0} packages</dd>
+        <dt className="text-ink-muted">Dependencies</dt>
+        <dd className="tabular-nums font-medium text-ink">{pkg.requires?.length ?? 0} packages</dd>
       </dl>
 
-      <div className="flex flex-col gap-3 px-4 py-4">
-        <h3 className="font-medium">
-          Vulnerabilities <span className="tabular-nums text-ink-faint">{vulns.length}</span>
-        </h3>
+      {/* Advisory Findings */}
+      <div className="flex flex-col gap-3 px-6 py-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[13px] font-bold text-ink">
+            Known Security Advisories
+          </h3>
+          <span className="rounded-full bg-line-subtle px-2 py-0.5 text-[11px] font-bold text-ink">
+            {vulns.length}
+          </span>
+        </div>
+
         {vulns.length === 0 ? (
-          <p className="text-ink-muted">No known vulnerabilities for this version.</p>
+          <div className="flex items-center gap-2 rounded-lg border border-line bg-canvas/40 p-3.5 text-[12px] text-ink-muted">
+            <span className="text-emerald-500 font-bold">✓</span>
+            <span>No security advisories registered for this release.</span>
+          </div>
         ) : (
           vulns.map(v => (
-            <div key={v.id} className="flex flex-col gap-1.5 rounded-lg border border-line p-3">
+            <div
+              key={v.id}
+              className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 shadow-sm"
+            >
               <div className="flex items-center gap-2">
                 <SeverityIcon severity={v.severity} />
-                <span className="font-mono text-[12px]">{v.id}</span>
-                <span className="ml-auto tabular-nums text-ink-muted">CVSS {v.cvss.toFixed(1)}</span>
+                <span className="font-mono text-[12px] font-bold text-ink">{v.id}</span>
+                <span
+                  className={`ml-auto font-mono text-[11px] font-bold tabular-nums px-2 py-0.5 rounded ${v.cvss >= 9
+                      ? 'bg-critical-bg text-critical'
+                      : v.cvss >= 7
+                        ? 'bg-high-bg text-high'
+                        : 'bg-canvas text-ink-muted'
+                    }`}
+                >
+                  CVSS {v.cvss.toFixed(1)}
+                </span>
               </div>
-              <p className="text-ink-muted">{v.summary}</p>
+              <p className="text-[12px] text-ink-muted leading-relaxed">{v.summary}</p>
               {v.affectedRanges.length > 0 && (
-                <p className="text-[12px] text-ink-faint">Affects {v.affectedRanges.join(', ')}</p>
+                <div className="rounded bg-canvas p-2 text-[11px] font-mono text-ink-faint">
+                  Affects versions: {v.affectedRanges.join(', ')}
+                </div>
               )}
+              {/* ⚡ IDE Fix copy button */}
+              <PackageDetailCopyButton pkg={pkg} vuln={v} projectId={projectId} />
             </div>
           ))
         )}
@@ -629,9 +1255,11 @@ function PackageDetail({ pkg, onClose }: { pkg: Package; onClose: () => void }) 
   );
 }
 
-/* Linear-style priority glyph: bars for severity, filled square for critical */
+/* -------------------------------------------------------------------------- */
+/*                           Linear-style Glyph                               */
+/* -------------------------------------------------------------------------- */
 function SeverityIcon({ severity }: { severity: Severity | null }) {
-  const label = severity ? `${SEVERITY_LABEL[severity]} severity` : 'No known vulnerabilities';
+  const label = severity ? `${SEVERITY_LABEL[severity]} severity` : 'Clean / Safe';
   if (severity === 'CRITICAL') {
     return (
       <svg width="14" height="14" viewBox="0 0 14 14" role="img" aria-label={label} className="shrink-0">
@@ -663,38 +1291,41 @@ function SeverityIcon({ severity }: { severity: Severity | null }) {
 function RiskMeter({ score }: { score: number }) {
   const pct = Math.round(score * 100);
   return (
-    <span className="flex items-center gap-2" aria-label={`Risk score ${pct} percent`}>
-      <span className="h-1 w-16 overflow-hidden rounded-full bg-hover">
-        <span className="block h-full rounded-full bg-critical" style={{ width: `${pct}%` }} />
+    <div className="flex items-center gap-2.5">
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-line-subtle">
+        <div
+          className="h-full rounded-full transition-all duration-300"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: pct > 70 ? 'var(--critical)' : pct > 40 ? 'var(--high)' : 'var(--medium)',
+          }}
+        />
+      </div>
+      <span className="w-8 text-right font-mono text-[11px] font-bold tabular-nums text-ink">
+        {pct}%
       </span>
-      <span className="w-8 text-right tabular-nums text-ink-muted">{pct}%</span>
-    </span>
+    </div>
   );
 }
 
-function Tag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-line px-2 text-[12px] text-ink-muted">
-      {children}
-    </span>
-  );
-}
-
+/* -------------------------------------------------------------------------- */
+/*                                SVG Icons                                   */
+/* -------------------------------------------------------------------------- */
 const iconProps = {
   width: 14,
   height: 14,
   viewBox: '0 0 16 16',
   fill: 'none',
   stroke: 'currentColor',
-  strokeWidth: 1.5,
+  strokeWidth: 1.6,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
   'aria-hidden': true,
 };
 
-function IconGrid() {
+function IconGrid({ active }: { active?: boolean }) {
   return (
-    <svg {...iconProps}>
+    <svg {...iconProps} strokeWidth={active ? 1.9 : 1.6}>
       <rect x="2" y="2" width="5" height="5" rx="1" />
       <rect x="9" y="2" width="5" height="5" rx="1" />
       <rect x="2" y="9" width="5" height="5" rx="1" />
@@ -702,24 +1333,27 @@ function IconGrid() {
     </svg>
   );
 }
-function IconBox() {
+
+function IconBox({ active }: { active?: boolean }) {
   return (
-    <svg {...iconProps}>
+    <svg {...iconProps} strokeWidth={active ? 1.9 : 1.6}>
       <path d="M8 1.75 14 5v6l-6 3.25L2 11V5l6-3.25Z" />
       <path d="M2 5l6 3.25L14 5M8 8.25v6" />
     </svg>
   );
 }
-function IconShield() {
+
+function IconShield({ active }: { active?: boolean }) {
   return (
-    <svg {...iconProps}>
+    <svg {...iconProps} strokeWidth={active ? 1.9 : 1.6}>
       <path d="M8 1.75 13.5 4v4c0 3.25-2.5 5.5-5.5 6.25C5 13.5 2.5 11.25 2.5 8V4L8 1.75Z" />
     </svg>
   );
 }
-function IconGraph() {
+
+function IconGraph({ active }: { active?: boolean }) {
   return (
-    <svg {...iconProps}>
+    <svg {...iconProps} strokeWidth={active ? 1.9 : 1.6}>
       <circle cx="4" cy="4" r="2" />
       <circle cx="12" cy="4" r="2" />
       <circle cx="8" cy="12" r="2" />
@@ -727,13 +1361,15 @@ function IconGraph() {
     </svg>
   );
 }
-function IconSpark() {
+
+function IconSpark({ active }: { active?: boolean }) {
   return (
-    <svg {...iconProps}>
+    <svg {...iconProps} strokeWidth={active ? 1.9 : 1.6}>
       <path d="M8 2v3M8 11v3M2 8h3M11 8h3M4 4l1.75 1.75M10.25 10.25 12 12M12 4l-1.75 1.75M5.75 10.25 4 12" />
     </svg>
   );
 }
+
 function IconPlus() {
   return (
     <svg {...iconProps}>
@@ -741,6 +1377,7 @@ function IconPlus() {
     </svg>
   );
 }
+
 function IconDownload() {
   return (
     <svg {...iconProps}>
@@ -748,6 +1385,7 @@ function IconDownload() {
     </svg>
   );
 }
+
 function IconAlert() {
   return (
     <svg {...iconProps}>
@@ -757,46 +1395,87 @@ function IconAlert() {
   );
 }
 
-const DEMO_SBOM: EnrichedSBOM = {
-  projectId: 'demo-project',
-  generatedAt: new Date().toISOString(),
-  metadata: { languages: ['typescript', 'javascript'], services: ['web', 'api'] },
-  packages: [
-    { name: 'react', version: '18.2.0', eco: 'npm', direct: true, license: 'MIT', requires: [{ name: 'typescript', version: '5.9.2' }], vulns: [] },
-    {
-      name: 'next',
-      version: '14.1.0',
-      eco: 'npm',
-      direct: true,
-      license: 'MIT',
-      requires: [
-        { name: 'react', version: '18.2.0' },
-        { name: 'typescript', version: '5.9.2' },
-      ],
-      vulns: [
-        { id: 'CVE-2024-1234', source: 'NVD', cvss: 3.1, severity: 'LOW', published: '2024-01-01', summary: 'Test vulnerability', affectedRanges: ['<14.2.0'] },
-      ],
-    },
-    { name: 'typescript', version: '5.9.2', eco: 'npm', direct: false, license: 'Apache-2.0', requires: [], vulns: [] },
-    { name: 'd3', version: '7.8.5', eco: 'npm', direct: true, license: 'ISC', requires: [{ name: 'typescript', version: '5.9.2' }], vulns: [] },
-    {
-      name: 'tailwindcss',
-      version: '3.4.0',
-      eco: 'npm',
-      direct: true,
-      license: 'MIT',
-      requires: [],
-      vulns: [
-        { id: 'CVE-2024-5678', source: 'NVD', cvss: 5.5, severity: 'MEDIUM', published: '2024-01-02', summary: 'Another test vulnerability', affectedRanges: ['<3.5.0'] },
-      ],
-    },
-    { name: 'lodash', version: '4.17.21', eco: 'npm', direct: true, license: 'MIT', requires: [], vulns: [] },
-  ],
-  summary: {
-    counts: { packages: 6, direct: 5, transitive: 1, vulns: 2, critical: 0, high: 0, medium: 1, low: 1 },
-    topRisks: [
-      { package: 'tailwindcss', version: '3.4.0', score: 0.6, reason: 'Medium severity vulnerability' },
-      { package: 'next', version: '14.1.0', score: 0.3, reason: 'Low severity vulnerability' },
-    ],
-  },
-};
+function IconSearch() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="6.5" cy="6.5" r="4.5" />
+      <path d="M10 10l4 4" />
+    </svg>
+  );
+}
+
+function IconGit() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="4" cy="4" r="2" />
+      <circle cx="12" cy="7" r="2" />
+      <circle cx="4" cy="12" r="2" />
+      <path d="M4 6v4M4 8a4 4 0 0 1 4-4h2" />
+    </svg>
+  );
+}
+
+function IconZip() {
+  return (
+    <svg {...iconProps}>
+      <path d="M3 3h10v10H3z" />
+      <path d="M7 3v10M9 5h-2M9 8h-2M9 11h-2" />
+    </svg>
+  );
+}
+
+function IconContainer() {
+  return (
+    <svg {...iconProps}>
+      <path d="M2 5l6-3 6 3v6l-6 3-6-3V5z" />
+      <path d="M2 5l6 3 6-3M8 8v6" />
+    </svg>
+  );
+}
+
+function IconLink() {
+  return (
+    <svg {...iconProps}>
+      <path d="M6.5 9.5 9.5 6.5M7 5l1.5-1.5a3 3 0 0 1 4.24 4.24L11.24 9.24M9 11l-1.5 1.5a3 3 0 0 1-4.24-4.24L4.76 6.76" />
+    </svg>
+  );
+}
+
+function IconArrowRight() {
+  return (
+    <svg {...iconProps}>
+      <path d="M3 8h10M9 4l4 4-4 4" />
+    </svg>
+  );
+}
+
+function IconClock() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 4.5v3.5l2.5 1.5" />
+    </svg>
+  );
+}
+
+function IconShieldCheck() {
+  return (
+    <svg {...iconProps}>
+      <path d="M8 1.75 13.5 4v4c0 3.25-2.5 5.5-5.5 6.25C5 13.5 2.5 11.25 2.5 8V4L8 1.75Z" />
+      <path d="m5.5 8 2 2 3.5-3.5" />
+    </svg>
+  );
+}
+
+function IconMenu() {
+  return (
+    <svg {...iconProps}>
+      <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
+    </svg>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               Demo Dataset                                 */
+/* -------------------------------------------------------------------------- */
+// DEMO_SBOM is imported from @dependency-canary/shared

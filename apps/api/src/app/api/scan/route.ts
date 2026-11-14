@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ScanRequest, createModalClient } from '@dependency-canary/shared';
+import { type ScanRequest, createModalClient } from '@dependency-canary/shared';
 import { corsResponse } from '@/lib/cors';
 
 export async function OPTIONS(request: NextRequest) {

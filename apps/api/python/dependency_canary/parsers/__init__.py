@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Manifest parsers for different package managers and languages.
 """

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Command-line interface for Code Canary.
 """

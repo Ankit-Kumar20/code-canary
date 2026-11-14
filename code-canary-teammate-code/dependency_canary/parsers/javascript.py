@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 JavaScript/TypeScript parser for npm, yarn, and pnpm package managers.
 """

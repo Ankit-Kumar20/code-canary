@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Language and package manager detection for dependency scanning.
 """
