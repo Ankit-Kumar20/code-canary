@@ -461,7 +461,7 @@ export default function HomePage() {
         </div>
 
         {/* Sidebar Footer */}
-        <div className={`border-t border-line bg-sidebar w-full ${collapsed ? 'py-3 flex justify-center' : 'px-4 py-3'}`}>
+        <div className={`bg-sidebar w-full ${collapsed ? 'py-3 flex justify-center' : 'px-4 py-3'}`}>
           {!collapsed ? (
             <div className="flex items-center justify-between text-[11px] text-ink-faint">
               <span className="flex items-center gap-1.5">
