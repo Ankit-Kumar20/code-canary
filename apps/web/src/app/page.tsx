@@ -460,24 +460,6 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Sidebar Footer */}
-        <div className={`bg-sidebar w-full ${collapsed ? 'py-3 flex justify-center' : 'px-4 py-3'}`}>
-          {!collapsed ? (
-            <div className="flex items-center justify-between text-[11px] text-ink-faint">
-              <span className="flex items-center gap-1.5">
-                <IconClock />
-                <span>Status</span>
-              </span>
-              <span className="font-mono text-[11px] text-ink-muted">
-                {sbom ? new Date(sbom.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Idle'}
-              </span>
-            </div>
-          ) : (
-            <span className="text-ink-faint cursor-pointer" title={sbom ? `Audited: ${new Date(sbom.generatedAt).toLocaleTimeString()}` : 'Idle'}>
-              <IconClock />
-            </span>
-          )}
-        </div>
       </aside>
 
       {/* -------------------- Main Workspace Viewport -------------------- */}
@@ -1556,15 +1538,6 @@ function IconArrowRight() {
   return (
     <svg {...iconProps}>
       <path d="M3 8h10M9 4l4 4-4 4" />
-    </svg>
-  );
-}
-
-function IconClock() {
-  return (
-    <svg {...iconProps}>
-      <circle cx="8" cy="8" r="6" />
-      <path d="M8 4.5v3.5l2.5 1.5" />
     </svg>
   );
 }
