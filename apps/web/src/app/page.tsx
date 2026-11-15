@@ -144,7 +144,8 @@ export default function HomePage() {
     if (!sbom) return;
     const response = await fetch(`${API}/report?projectId=${sbom.projectId}&format=pdf`, { credentials: 'include' });
     if (!response.ok) {
-      setError('The report could not be generated. Please ensure the API server is active on port 3001.');
+      const body = await response.json().catch(() => null);
+      setError(`The report could not be generated: ${body?.error ?? response.statusText}`);
       return;
     }
     const blob = await response.blob();

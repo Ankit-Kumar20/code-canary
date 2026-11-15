@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { ReportGenerator } from '@/lib/report-generator';
 import { agentService } from '@/lib/agent-service';
+import { marked } from 'marked';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
           </style>
         </head>
         <body>
-          ${markdownToHtml(markdown)}
+          ${await marked.parse(markdown)}
         </body>
         </html>
       `;
@@ -85,21 +86,18 @@ export async function GET(request: NextRequest) {
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
       
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '1in',
-          bottom: '1in',
-          left: '1in',
-          right: '1in',
-        },
-      });
-
-      await browser.close();
+      let pdf: Uint8Array;
+      try {
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: 'networkidle0' });
+        pdf = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: { top: '1in', bottom: '1in', left: '1in', right: '1in' },
+        });
+      } finally {
+        await browser.close();
+      }
 
       return new NextResponse(pdf as BufferSource, {
         headers: {
@@ -120,30 +118,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function markdownToHtml(markdown: string): string {
-    return markdown
-      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-      .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code>$1</code>')
-      .replace(/^\- (.*$)/gm, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/^(.*)$/gm, '<p>$1</p>')
-      .replace(/<p><h/g, '<h')
-      .replace(/<\/h([1-6])><\/p>/g, '</h$1>')
-      .replace(/<p><ul>/g, '<ul>')
-      .replace(/<\/ul><\/p>/g, '</ul>')
-      .replace(/\|(.+)\|/g, (match, content) => {
-        const cells = content.split('|').map((cell: string) => cell.trim());
-        return '<tr>' + cells.map((cell: string) => `<td>${cell}</td>`).join('') + '</tr>';
-      })
-      .replace(/(<tr>.*<\/tr>)/g, '<table>$1</table>')
-      .replace(/<p><table>/g, '<table>')
-      .replace(/<\/table><\/p>/g, '</table>');
 }
