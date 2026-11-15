@@ -2,7 +2,8 @@ import { ScanRequest, ScanResponse, EnrichResponse } from "../types/api";
 
 export interface ModalClient {
   scan(request: ScanRequest): Promise<ScanResponse>;
-  enrich(jobId: string): Promise<EnrichResponse>;
+  /** projectRef is the ref passed to scan(), for clients that rescan it. */
+  enrich(jobId: string, projectRef?: string): Promise<EnrichResponse>;
 }
 
 export class MockModalClient implements ModalClient {

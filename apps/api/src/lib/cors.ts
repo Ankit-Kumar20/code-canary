@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export function corsHeaders(origin?: string) {
   return {
-    'Access-Control-Allow-Origin': origin || 'http://localhost:3000',
+    'Access-Control-Allow-Origin': origin || process.env.WEB_ORIGIN || 'http://localhost:3000',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',

@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { agentService } from '@/lib/agent-service';
 import { corsResponse } from '@/lib/cors';
 
-export async function OPTIONS(request: NextRequest) {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': 'http://localhost:3000',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    if (!(await auth.api.getSession({ headers: request.headers }))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
     const depth = parseInt(searchParams.get('depth') || '1');
@@ -26,12 +22,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let sbom = agentService.getSBOM(projectId);
+    const sbom = await agentService.getSBOM(projectId);
     
-    // If not in agent service, try to get from the enrich endpoint
+    // Unknown project: return a small mock graph
     if (!sbom) {
-      // For now, we'll return a mock graph since we don't have persistent SBOM storage
-      // In a real implementation, you'd want to store SBOM data in a database
       const mockNodes = [
         { id: 'react@18.2.0', name: 'react', version: '18.2.0', direct: true, severity: 'NONE', group: 1 },
         { id: 'next@14.1.0', name: 'next', version: '14.1.0', direct: true, severity: 'LOW', group: 1 },

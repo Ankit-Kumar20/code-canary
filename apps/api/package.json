@@ -8,16 +8,26 @@
     "start": "next start -p 3001",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf .next"
+    "clean": "rm -rf .next",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@dependency-canary/shared": "workspace:*",
     "@dependency-canary/agent": "workspace:*",
+    "@dependency-canary/shared": "workspace:*",
+    "better-auth": "^1.7.25",
+    "dotenv": "^18.0.10",
+    "drizzle-orm": "^0.45.4",
     "next": "14.1.0",
+    "pg": "^8.23.1",
     "puppeteer": "^22.4.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
     "typescript": "^5.3.3"
   }
 }

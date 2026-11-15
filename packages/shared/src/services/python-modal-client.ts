@@ -1,9 +1,6 @@
 import { ScanRequest, ScanResponse, EnrichResponse } from '../types/api';
 import { ModalClient } from './modal-client';
 
-// Simple in-memory cache to store project references by job ID
-const projectReferenceCache = new Map<string, string>();
-
 // Safe dynamic module loader to prevent Next.js client Webpack bundling from choking on Node built-ins
 function getSafeNodeModule(moduleName: string): any {
   if (typeof (globalThis as any).window !== 'undefined') {
@@ -43,36 +40,24 @@ export class PythonModalClient implements ModalClient {
         '--use-modal'  // Use Modal workers for real cloud processing
       ]);
 
-      // Store the project reference in cache using the returned job ID
-      const response = result as ScanResponse;
-      projectReferenceCache.set(response.jobId, request.ref);
-      
-      return response;
+      return result as ScanResponse;
     } catch (error) {
       console.error('Python scan failed, falling back to mock:', error);
       // Fallback to mock behavior
       const jobId = `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      projectReferenceCache.set(jobId, request.ref);
       return { jobId };
     }
   }
 
-  async enrich(jobId: string): Promise<EnrichResponse> {
+  async enrich(jobId: string, projectRef = '.'): Promise<EnrichResponse> {
     try {
-      // Get the project reference from cache
-      const projectRef = projectReferenceCache.get(jobId) || '.';
-      
       const result = await this.executePythonBridge('enrich', [
         '--job-id', jobId,
         '--project-ref', projectRef
       ]);
 
-      // Clean up cache entry after use
-      projectReferenceCache.delete(jobId);
-      
       return result as EnrichResponse;
     } catch (error) {
-      projectReferenceCache.delete(jobId);
       console.error('Python real repository enrichment failed:', error);
       throw error;
     }

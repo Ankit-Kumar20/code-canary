@@ -13,6 +13,7 @@
   "dependencies": {
     "@dependency-canary/shared": "workspace:*",
     "@types/d3": "^7.4.3",
+    "better-auth": "^1.7.25",
     "d3": "^7.9.0",
     "networkx": "0.0.1-security",
     "next": "14.1.0",

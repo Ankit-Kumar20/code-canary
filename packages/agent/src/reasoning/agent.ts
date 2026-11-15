@@ -73,8 +73,7 @@ export class SecurityAgent {
     }
   }
 
-  async ask(projectId: string, question: string): Promise<AgentAnswer> {
-    const sbom = this.sbomCache.get(projectId);
+  async ask(projectId: string, question: string, sbom = this.sbomCache.get(projectId)): Promise<AgentAnswer> {
     if (!sbom) {
       throw new Error(`SBOM not found for project ${projectId}`);
     }
@@ -131,11 +130,11 @@ export class SecurityAgent {
     }
 
     const queries: VectorStoreQuery[] = [
-      { query: question, embedding: queryEmbedding, k: 6 },
-      { query: question, embedding: queryEmbedding, k: 4, filter: { type: "vulnerability", severity: "CRITICAL" } },
-      { query: question, embedding: queryEmbedding, k: 4, filter: { type: "vulnerability", severity: "HIGH" } },
-      { query: question, embedding: queryEmbedding, k: 4, filter: { type: "package", isDirect: true } },
-      { query: question, embedding: queryEmbedding, k: 3, filter: { type: "service" } },
+      { query: question, embedding: queryEmbedding, k: 6, filter: { projectId } },
+      { query: question, embedding: queryEmbedding, k: 4, filter: { projectId, type: "vulnerability", severity: "CRITICAL" } },
+      { query: question, embedding: queryEmbedding, k: 4, filter: { projectId, type: "vulnerability", severity: "HIGH" } },
+      { query: question, embedding: queryEmbedding, k: 4, filter: { projectId, type: "package", isDirect: true } },
+      { query: question, embedding: queryEmbedding, k: 3, filter: { projectId, type: "service" } },
     ];
 
     try {

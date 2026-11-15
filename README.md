@@ -83,21 +83,57 @@ cp .env.example apps/api/.env.local
 cp .env.example apps/web/.env.local
 ```
 
-All values are optional. Leave them empty to run fully on mock data.
+`DATABASE_URL` and `BETTER_AUTH_SECRET` are required (see steps 4 and 5). Everything else is optional; leave it empty to run on mock data.
 
 | Variable | Purpose |
 |---|---|
 | `MODAL_BASE_URL`, `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET` | Real Modal scan services |
 | `OPENAI_API_KEY` | Real embeddings and LLM answers (otherwise mocked) |
-| `VECTOR_STORE_TYPE` | `memory` (default), `sqlite`, or `pinecone` |
+| `VECTOR_STORE_TYPE` | Vector store for `pnpm seed:mock` only: `memory` (default), `sqlite`, or `pinecone`. The API always uses Postgres |
 | `SQLITE_DB_PATH` | SQLite file when using `sqlite` |
 | `PINECONE_API_KEY`, `PINECONE_INDEX` | Pinecone settings |
 | `USE_PYTHON_BRIDGE` | `true` to use the Python scanner outside development |
 | `SKIP_EMBEDDINGS` | `true` to skip embedding generation |
+| `DATABASE_URL` | PostgreSQL connection string (users, sessions, scanned SBOMs) |
+| `BETTER_AUTH_SECRET` | Secret for signing sessions; generate with `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | API base URL that serves `/api/auth` (default `http://localhost:3001`) |
+| `WEB_ORIGIN` | Web app origin allowed to call the API with cookies (default `http://localhost:3000`) |
+| `NEXT_PUBLIC_API_URL` | Web app: API base URL (default `http://localhost:3001`) |
 
 Never commit `.env` or `.env.local` files; they are gitignored.
 
-### 4. Build, seed, and run
+### 4. Set up PostgreSQL
+
+The API stores users, sessions, scan jobs, scanned SBOMs, and their RAG embeddings in PostgreSQL through [Drizzle ORM](https://orm.drizzle.team). Install PostgreSQL natively (no Docker needed); on macOS:
+
+```bash
+brew install postgresql@17
+brew services start postgresql@17
+psql postgres -c "CREATE ROLE canary LOGIN PASSWORD 'canary';"
+psql postgres -c "CREATE DATABASE canary OWNER canary;"
+```
+
+Set `DATABASE_URL` in `apps/api/.env.local` (for example `postgres://canary:canary@localhost:5432/canary`), then apply the migrations:
+
+```bash
+pnpm db:migrate
+```
+
+The schema lives in `apps/api/src/db/schema.ts` and migrations in `apps/api/drizzle/`. After changing the schema, run `db:generate` to create a migration and `db:migrate` to apply it; `db:studio` opens Drizzle Studio.
+
+### 5. Set up authentication
+
+Sign-in uses [Better Auth](https://www.better-auth.com) with email and password. The API app hosts the auth endpoints at `/api/auth/*` and stores accounts in Postgres; the web app shows a sign-in page at `/sign-in` and redirects there when you aren't signed in. All other API routes return `401` without a session.
+
+Add a secret to `apps/api/.env.local`:
+
+```bash
+echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" >> apps/api/.env.local
+```
+
+The auth tables live in `apps/api/src/db/auth-schema.ts` and are created by `db:migrate`. If you add Better Auth plugins that need new tables, regenerate that file with `npx auth@latest generate --config src/lib/auth.ts --output src/db/auth-schema.ts`, then run `db:generate` and `db:migrate`.
+
+### 6. Build, seed, and run
 
 ```bash
 pnpm -r build      # build shared packages
@@ -112,7 +148,7 @@ pnpm --filter @dependency-canary/web dev
 pnpm --filter @dependency-canary/api dev
 ```
 
-### 5. Check your changes before opening a PR
+### 7. Check your changes before opening a PR
 
 ```bash
 pnpm typecheck
@@ -271,7 +307,7 @@ Response: PDF blob or Markdown text
 
 ## 📈 Performance Notes
 
-- **Vector Store**: In-memory store for dev, SQLite/Pinecone for production
+- **Vector Store**: The API stores embeddings in Postgres (`vector_documents`); the seed script can use memory, SQLite, or Pinecone
 - **Embeddings**: ~1500 dimensions, cached per document
 - **Agent Reasoning**: Context-aware RAG with metadata filtering
 - **Report Generation**: Server-side PDF rendering with Puppeteer

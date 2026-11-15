@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { createModalClient } from '@dependency-canary/shared';
 import { corsResponse } from '@/lib/cors';
 import { agentService } from '@/lib/agent-service';
+import { and, eq, sql } from 'drizzle-orm';
+import { db } from '@/db';
+import { scanJobs } from '@/db/schema';
 
-export async function OPTIONS(request: NextRequest) {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': 'http://localhost:3000',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const jobId = searchParams.get('jobId');
 
@@ -26,14 +26,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const client = createModalClient();
-    const sbom = await client.enrich(jobId);
+    const [job] = await db
+      .select()
+      .from(scanJobs)
+      .where(and(eq(scanJobs.id, jobId), eq(scanJobs.userId, session.user.id)))
+      .limit(1);
+    if (!job) {
+      return corsResponse({ error: 'Scan job not found' }, 404);
+    }
 
-    // Index the SBOM in the agent service for semantic graph & QA search
-    console.log(`Indexing SBOM for agent access: ${sbom.projectId}...`);
-    await agentService.indexSBOM(sbom);
+    try {
+      const client = createModalClient();
+      const sbom = await client.enrich(jobId, job.ref);
 
-    return corsResponse(sbom);
+      // Store the SBOM and its embeddings for the graph, report, and Q&A routes
+      console.log(`Indexing SBOM for agent access: ${sbom.projectId}...`);
+      await agentService.indexSBOM(sbom);
+
+      await db
+        .update(scanJobs)
+        .set({ status: 'completed', projectId: sbom.projectId, updatedAt: sql`now()` })
+        .where(eq(scanJobs.id, jobId));
+      return corsResponse(sbom);
+    } catch (error) {
+      await db
+        .update(scanJobs)
+        .set({ status: 'failed', updatedAt: sql`now()` })
+        .where(eq(scanJobs.id, jobId));
+      throw error;
+    }
   } catch (error) {
     console.error('Enrich API error:', error);
     return corsResponse(

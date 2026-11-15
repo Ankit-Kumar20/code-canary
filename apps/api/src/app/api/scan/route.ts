@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { type ScanRequest, createModalClient } from '@dependency-canary/shared';
 import { corsResponse } from '@/lib/cors';
-
-export async function OPTIONS(request: NextRequest) {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': 'http://localhost:3000',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
-}
+import { db } from '@/db';
+import { scanJobs } from '@/db/schema';
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json() as ScanRequest;
     
     if (!body.ref || !body.refType || !body.projectRef) {
@@ -26,6 +23,12 @@ export async function POST(request: NextRequest) {
 
     const client = createModalClient();
     const result = await client.scan(body);
+    await db.insert(scanJobs).values({
+      id: result.jobId,
+      userId: session.user.id,
+      refType: body.refType,
+      ref: body.ref,
+    });
 
     return corsResponse(result);
   } catch (error) {

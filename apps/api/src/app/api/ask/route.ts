@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import type { AskRequest } from '@dependency-canary/shared';
 import { corsResponse } from '@/lib/cors';
 import { agentService } from '@/lib/agent-service';
 
-export async function OPTIONS(request: NextRequest) {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': 'http://localhost:3000',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
-}
-
 export async function POST(request: NextRequest) {
   try {
+    if (!(await auth.api.getSession({ headers: request.headers }))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json() as AskRequest;
     
     if (!body.projectId || !body.question) {

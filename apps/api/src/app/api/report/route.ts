@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { ReportGenerator } from '@/lib/report-generator';
 import { agentService } from '@/lib/agent-service';
-import puppeteer from 'puppeteer';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    if (!(await auth.api.getSession({ headers: request.headers }))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
     const format = searchParams.get('format') || 'pdf';
@@ -16,7 +22,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const sbom = agentService.getSBOM(projectId);
+    const sbom = await agentService.getSBOM(projectId);
     if (!sbom) {
       return NextResponse.json(
         { error: 'SBOM not found for project' },
@@ -71,6 +77,9 @@ export async function GET(request: NextRequest) {
         </html>
       `;
 
+      // Load puppeteer as native ESM at request time. Its CommonJS build requires
+      // yargs/yargs, which Node 26 loads as ESM and fails on, breaking `next build`.
+      const { default: puppeteer } = await import(/* webpackIgnore: true */ 'puppeteer');
       const browser = await puppeteer.launch({
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],

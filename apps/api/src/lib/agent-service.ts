@@ -1,17 +1,20 @@
-import { SecurityAgent, createVectorStore } from '@dependency-canary/agent';
+import { SecurityAgent } from '@dependency-canary/agent';
 import { DEMO_SBOM, type EnrichedSBOM } from '@dependency-canary/shared';
+import { eq, sql } from 'drizzle-orm';
+import { db } from '@/db';
+import { sboms } from '@/db/schema';
+import { PostgresVectorStore } from './postgres-vector-store';
 
+// SBOMs and their RAG embeddings live in Postgres; this service keeps no project state in memory.
 class AgentService {
   private static instance: AgentService;
-  private agent: SecurityAgent;
-  private indexedProjects: Set<string> = new Set();
-  private sbomCache: Map<string, EnrichedSBOM> = new Map();
+  private vectorStore = new PostgresVectorStore();
+  private agent = new SecurityAgent(this.vectorStore);
 
   private constructor() {
-    this.agent = new SecurityAgent(createVectorStore());
-    // Automatically pre-index the demo dataset so the agent works out-of-the-box
-    this.indexSBOM(DEMO_SBOM).catch(err => {
-      console.warn('Auto pre-indexing DEMO_SBOM failed:', err);
+    // Make sure the demo project is stored so the agent works out of the box
+    this.ensureIndexed(DEMO_SBOM).catch(err => {
+      console.warn('Storing DEMO_SBOM failed:', err);
     });
   }
 
@@ -22,43 +25,45 @@ class AgentService {
     return AgentService.instance;
   }
 
+  // Stores a (re)scanned SBOM and replaces its embeddings.
   public async indexSBOM(sbom: EnrichedSBOM): Promise<void> {
+    await db
+      .insert(sboms)
+      .values({ projectId: sbom.projectId, sbom })
+      .onConflictDoUpdate({
+        target: sboms.projectId,
+        set: { sbom, updatedAt: sql`now()` },
+      });
+    await this.vectorStore.deleteProject(sbom.projectId);
     await this.agent.indexSBOM(sbom);
-    this.indexedProjects.add(sbom.projectId);
-    this.sbomCache.set(sbom.projectId, sbom);
     console.log(`Indexed SBOM for project: ${sbom.projectId}`);
   }
 
   public async ask(projectId: string, question: string) {
-    // If not yet indexed, check if it's the demo project or in cache
-    if (!this.indexedProjects.has(projectId)) {
-      if (projectId === DEMO_SBOM.projectId || projectId === 'demo-fullstack-canary') {
-        await this.indexSBOM(DEMO_SBOM);
-      } else if (this.sbomCache.has(projectId)) {
-        await this.indexSBOM(this.sbomCache.get(projectId)!);
-      } else if (this.indexedProjects.size > 0) {
-        // Fallback to the first available indexed project if ID slightly differs
-        const defaultProjectId = Array.from(this.indexedProjects)[0];
-        console.warn(`Project ${projectId} not found; falling back to ${defaultProjectId}`);
-        return await this.agent.ask(defaultProjectId, question);
-      } else {
-        await this.indexSBOM(DEMO_SBOM);
-        return await this.agent.ask(DEMO_SBOM.projectId, question);
-      }
+    let sbom = await this.getSBOM(projectId);
+    if (!sbom) {
+      console.warn(`Project ${projectId} not found; falling back to ${DEMO_SBOM.projectId}`);
+      sbom = DEMO_SBOM;
+      await this.ensureIndexed(sbom);
+    } else if (!(await this.vectorStore.hasProject(sbom.projectId))) {
+      await this.agent.indexSBOM(sbom);
     }
-    return await this.agent.ask(projectId, question);
+    return this.agent.ask(sbom.projectId, question, sbom);
   }
 
-  public isProjectIndexed(projectId: string): boolean {
-    return this.indexedProjects.has(projectId);
+  public async getSBOM(projectId: string): Promise<EnrichedSBOM | undefined> {
+    const [row] = await db
+      .select({ sbom: sboms.sbom })
+      .from(sboms)
+      .where(eq(sboms.projectId, projectId))
+      .limit(1);
+    return row?.sbom;
   }
 
-  public getIndexedProjects(): string[] {
-    return Array.from(this.indexedProjects);
-  }
-
-  public getSBOM(projectId: string): EnrichedSBOM | undefined {
-    return this.sbomCache.get(projectId);
+  private async ensureIndexed(sbom: EnrichedSBOM): Promise<void> {
+    if (!(await this.getSBOM(sbom.projectId)) || !(await this.vectorStore.hasProject(sbom.projectId))) {
+      await this.indexSBOM(sbom);
+    }
   }
 }
 

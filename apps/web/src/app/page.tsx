@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   type ScanRequest,
   type EnrichedSBOM,
@@ -11,9 +12,10 @@ import {
 } from '@dependency-canary/shared';
 import DependencyGraphViz from '@/components/dependency-graph-viz';
 import QAPanel from '@/components/qa-panel';
+import { authClient } from '@/lib/auth-client';
 import IdeSolutionBox, { VulnRowCopyButton, PackageDetailCopyButton } from '@/components/ide-solution-box';
 
-const API = 'http://localhost:3001/api';
+const API = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/api`;
 
 type View = 'overview' | 'packages' | 'vulnerabilities' | 'graph' | 'agent';
 type Severity = Vulnerability['severity'];
@@ -51,6 +53,8 @@ function worstSeverity(pkg: Package): Severity | null {
 }
 
 export default function HomePage() {
+  const router = useRouter();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sbom, setSBOM] = useState<EnrichedSBOM | null>(null);
@@ -59,6 +63,32 @@ export default function HomePage() {
   const [refType, setRefType] = useState<RefType>('git');
   const [ref, setRef] = useState('');
   const [collapsed, setCollapsed] = useState(false);
+  const [projects, setProjects] = useState<{ projectId: string; ref: string; refType: RefType; scannedAt: string }[]>([]);
+
+  const loadProjects = async () => {
+    const response = await fetch(`${API}/projects`, { credentials: 'include' });
+    if (response.ok) setProjects(await response.json());
+  };
+
+  useEffect(() => {
+    if (session) loadProjects();
+  }, [session]);
+
+  const openProject = async (projectId: string) => {
+    setError(null);
+    setSelected(null);
+    const response = await fetch(`${API}/projects?projectId=${encodeURIComponent(projectId)}`, { credentials: 'include' });
+    if (!response.ok) {
+      setError('The project could not be loaded.');
+      return;
+    }
+    setSBOM(await response.json());
+    setView('overview');
+  };
+
+  useEffect(() => {
+    if (!sessionPending && !session) router.replace('/sign-in');
+  }, [session, sessionPending, router]);
 
   const handleScan = async (request: ScanRequest) => {
     setLoading(true);
@@ -70,6 +100,7 @@ export default function HomePage() {
       const scanResponse = await fetch(`${API}/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(request),
       });
       if (!scanResponse.ok) throw new Error(`Scan request failed: ${scanResponse.statusText}`);
@@ -79,7 +110,7 @@ export default function HomePage() {
       let enrichResult;
       for (let attempts = 0; attempts < 30; attempts++) {
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const enrichResponse = await fetch(`${API}/enrich?jobId=${jobId}`);
+        const enrichResponse = await fetch(`${API}/enrich?jobId=${jobId}`, { credentials: 'include' });
         if (enrichResponse.ok) {
           enrichResult = await enrichResponse.json();
           break;
@@ -89,6 +120,7 @@ export default function HomePage() {
 
       setSBOM(enrichResult);
       setView('overview');
+      loadProjects();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Scan failed');
     } finally {
@@ -101,6 +133,7 @@ export default function HomePage() {
     const response = await fetch(`${API}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ projectId: sbom.projectId, question }),
     });
     if (!response.ok) throw new Error(`Failed to get answer: ${response.statusText}`);
@@ -109,7 +142,7 @@ export default function HomePage() {
 
   const handleGenerateReport = async () => {
     if (!sbom) return;
-    const response = await fetch(`${API}/report?projectId=${sbom.projectId}&format=pdf`);
+    const response = await fetch(`${API}/report?projectId=${sbom.projectId}&format=pdf`, { credentials: 'include' });
     if (!response.ok) {
       setError('The report could not be generated. Please ensure the API server is active on port 3001.');
       return;
@@ -130,6 +163,15 @@ export default function HomePage() {
     if (!ref.trim() || loading) return;
     handleScan({ projectRef: 'user-input', refType, ref: ref.trim() });
   };
+
+  const signOut = async () => {
+    await authClient.signOut();
+    router.replace('/sign-in');
+  };
+
+  if (!session) {
+    return <div className="flex h-screen items-center justify-center bg-canvas text-[13px] text-ink-faint">Loading…</div>;
+  }
 
   const currentView = VIEWS.find(v => v.id === view)!;
   const criticalCount = sbom?.summary.counts.critical ?? 0;
@@ -268,6 +310,40 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* Submitted Projects */}
+        {!collapsed && (
+          <div className="w-full px-3 pt-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint px-1 mb-1.5">
+              Projects
+            </div>
+            {projects.length === 0 ? (
+              <div className="px-1 text-[11px] text-ink-faint">No projects yet</div>
+            ) : (
+              <div className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+                {projects.map(project => {
+                  const active = sbom?.projectId === project.projectId;
+                  return (
+                    <button
+                      key={project.projectId}
+                      type="button"
+                      title={project.ref}
+                      aria-current={active ? 'true' : undefined}
+                      onClick={() => openProject(project.projectId)}
+                      disabled={loading}
+                      className={`flex flex-col rounded-lg px-2.5 py-1.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? 'bg-accent/10 text-accent' : 'text-ink-muted hover:bg-hover hover:text-ink'}`}
+                    >
+                      <span className="truncate font-mono text-[12px] font-medium">{project.projectId}</span>
+                      <span className="truncate text-[10.5px] text-ink-faint">
+                        {project.refType} · {new Date(project.scannedAt).toLocaleDateString()}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Navigation Section */}
         <nav
           aria-label="Project views"
@@ -348,6 +424,40 @@ export default function HomePage() {
             );
           })}
         </nav>
+
+        {/* Signed-in User */}
+        <div className={`border-t border-line w-full ${collapsed ? 'py-3 flex justify-center' : 'px-3 py-2.5'}`}>
+          {!collapsed ? (
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[11px] font-semibold text-accent">
+                {(session.user.name || session.user.email).charAt(0).toUpperCase()}
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[12px] font-medium text-ink leading-tight">{session.user.name}</span>
+                <span className="truncate text-[11px] text-ink-faint" title={session.user.email}>{session.user.email}</span>
+              </div>
+              <button
+                type="button"
+                onClick={signOut}
+                title="Sign out"
+                aria-label="Sign out"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <IconSignOut />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={signOut}
+              title={`Sign out (${session.user.email})`}
+              aria-label="Sign out"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-hover hover:text-ink"
+            >
+              <IconSignOut />
+            </button>
+          )}
+        </div>
 
         {/* Sidebar Footer */}
         <div className={`border-t border-line bg-sidebar w-full ${collapsed ? 'py-3 flex justify-center' : 'px-4 py-3'}`}>
@@ -1479,3 +1589,13 @@ function IconMenu() {
 /*                               Demo Dataset                                 */
 /* -------------------------------------------------------------------------- */
 // DEMO_SBOM is imported from @dependency-canary/shared
+
+function IconSignOut() {
+  return (
+    <svg {...iconProps}>
+      <path d="M6 13.5H3.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1H6" />
+      <path d="M10.5 11 13.5 8l-3-3" />
+      <path d="M13.5 8H6" />
+    </svg>
+  );
+}
