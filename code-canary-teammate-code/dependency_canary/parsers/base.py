@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Base parser class for manifest file parsing.
 """

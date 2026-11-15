@@ -1,3 +1,98 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  /* High-craft modern SaaS palette with precise OKLCH tonal balance */
+  --canvas: oklch(98.8% 0.003 265);
+  --surface: oklch(100% 0 0);
+  --sidebar: oklch(97.5% 0.004 265);
+  --hover: oklch(95.2% 0.007 265);
+  --active: oklch(92.5% 0.01 265);
+  
+  --ink: oklch(20% 0.015 265);
+  --ink-muted: oklch(46% 0.014 265);
+  --ink-faint: oklch(62% 0.012 265);
+  --line: rgba(15, 23, 42, 0.07);
+  --line-subtle: rgba(15, 23, 42, 0.04);
+  --line-strong: rgba(15, 23, 42, 0.14);
+  
+  /* Primary brand accent: Indigo / Violet precision */
+  --accent: oklch(56% 0.19 272);
+  --accent-hover: oklch(50% 0.20 272);
+  --accent-subtle: color-mix(in oklch, var(--accent) 10%, transparent);
+
+  /* Security severity tokens with intentional contrast */
+  --critical: oklch(58% 0.22 25);
+  --critical-bg: color-mix(in oklch, var(--critical) 8%, white);
+  --critical-border: color-mix(in oklch, var(--critical) 24%, transparent);
+
+  --high: oklch(65% 0.19 45);
+  --high-bg: color-mix(in oklch, var(--high) 8%, white);
+  --high-border: color-mix(in oklch, var(--high) 24%, transparent);
+
+  --medium: oklch(72% 0.17 80);
+  --medium-bg: color-mix(in oklch, var(--medium) 9%, white);
+  --medium-border: color-mix(in oklch, var(--medium) 26%, transparent);
+
+  --low: oklch(62% 0.09 240);
+  --low-bg: color-mix(in oklch, var(--low) 8%, white);
+  --low-border: color-mix(in oklch, var(--low) 22%, transparent);
+
+  --success: oklch(62% 0.17 145);
+  --success-bg: color-mix(in oklch, var(--success) 8%, white);
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.22);
+}
+
+/* Shimmer animation for loading states */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.animate-shimmer::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.5) 20%,
+    rgba(255, 255, 255, 0.5) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: shimmer 1.8s infinite;
+  content: '';
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Supply chain intelligence gathering using free APIs.
 """

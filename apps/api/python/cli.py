@@ -1,14 +1,20 @@
+from __future__ import annotations
 """
 Command-line interface for Code Canary.
 """
 
 import asyncio
 import json
+import os
 import sys
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Optional
+
+# Ensure Modal config path is set before modal is imported
+if not os.getenv("MODAL_CONFIG_PATH") and Path("/tmp/modal.toml").exists():
+    os.environ["MODAL_CONFIG_PATH"] = "/tmp/modal.toml"
 
 import click
 from rich.console import Console
@@ -16,10 +22,19 @@ from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from loguru import logger
 
-from .sbom import SBOMGenerator
-from .vulnerability import VulnerabilityEnricher
-from .modal_workers import ModalSBOMService
-from .models import ScanResult
+try:
+    from .dependency_canary.sbom import SBOMGenerator
+    from .dependency_canary.vulnerability import VulnerabilityEnricher
+    from .dependency_canary.modal_workers import ModalSBOMService
+    from .dependency_canary.models import ScanResult
+except (ImportError, ValueError):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from dependency_canary.sbom import SBOMGenerator
+    from dependency_canary.vulnerability import VulnerabilityEnricher
+    from dependency_canary.modal_workers import ModalSBOMService
+    from dependency_canary.models import ScanResult
 
 console = Console()
 
@@ -81,7 +96,10 @@ def scan(project_path: Path, output: Optional[Path], format: str,
                     modal_service = ModalSBOMService()
                     intelligence_data = await modal_service.gather_supply_chain_intelligence_remote(result.sbom.packages)
                 else:
-                    from .supply_chain_intelligence import SupplyChainIntelligence
+                    try:
+                        from .dependency_canary.supply_chain_intelligence import SupplyChainIntelligence
+                    except (ImportError, ValueError):
+                        from dependency_canary.supply_chain_intelligence import SupplyChainIntelligence
                     intel_service = SupplyChainIntelligence()
                     intelligence_data = await intel_service.gather_package_intelligence(result.sbom.packages)
                     
@@ -208,7 +226,10 @@ def sbom(project_path: Path, output: Optional[Path], format: str):
 def detect(project_path: Path):
     """Detect package managers and manifest files in a project."""
     
-    from .detectors import LanguageDetector
+    try:
+        from .dependency_canary.detectors import LanguageDetector
+    except (ImportError, ValueError):
+        from dependency_canary.detectors import LanguageDetector
     
     detector = LanguageDetector()
     manifests = detector.detect_manifests(project_path)

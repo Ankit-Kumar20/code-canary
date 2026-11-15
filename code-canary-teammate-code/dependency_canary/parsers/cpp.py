@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 C/C++ manifest parser for vcpkg and conan projects.
 """

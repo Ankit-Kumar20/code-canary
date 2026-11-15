@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Go manifest parser for Go Modules projects.
 """

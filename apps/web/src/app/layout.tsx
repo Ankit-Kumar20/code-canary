@@ -1,9 +1,7 @@
 import './globals.css';
-import { Inter } from 'next/font/google';
+import type { Metadata } from 'next';
 
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Dependency Canary',
   description: 'AI-powered dependency vulnerability analysis and supply chain security',
 };
@@ -15,17 +13,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <nav className="bg-gray-900 text-white p-4">
-          <div className="container mx-auto flex items-center justify-between">
-            <h1 className="text-xl font-bold">🐦 Dependency Canary</h1>
-            <p className="text-sm text-gray-300">AI-powered security analysis</p>
-          </div>
-        </nav>
-        <main className="container mx-auto px-4 py-8">
-          {children}
-        </main>
-      </body>
+      <head>
+        {/* Non-blocking Google Fonts — Inter + JetBrains Mono */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        />
+      </head>
+      <body className="bg-canvas text-ink antialiased">{children}</body>
     </html>
   );
 }

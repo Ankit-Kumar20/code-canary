@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Modal workers for parallel SBOM generation and vulnerability enrichment.
 """
@@ -18,21 +19,19 @@ from .models import SBOM, ScanResult, Package
 app = modal.App("renamed-project")
 
 # Define the container image with all dependencies
-image = (
-    modal.Image.debian_slim()
-    .apt_install(["curl", "ca-certificates"])
-    .run_commands([
-        "bash -lc 'curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin'",
-    ])
-    .pip_install([
-        "httpx>=0.25.0",
-        "pydantic>=2.0.0",
-        "loguru>=0.7.0",
-        "toml>=0.10.2",
-        "PyYAML>=6.0",
-        "networkx>=3.0",  # For dependency graph analysis
-    ])
-)
+image = modal.Image.debian_slim(python_version="3.11")
+image = image.apt_install(["curl", "ca-certificates", "git"])
+image = image.run_commands([
+    "bash -lc 'curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin'",
+])
+image = image.pip_install([
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "loguru>=0.7.0",
+    "toml>=0.10.2",
+    "PyYAML>=6.0",
+    "networkx>=3.0",
+])
 
 # Shared volume for temporary file storage
 volume = modal.Volume.from_name("renamed-project-data", create_if_missing=True)
@@ -54,7 +53,16 @@ async def generate_sbom_worker(project_data: Dict[str, Any]) -> Dict[str, Any]:
         Serialized SBOM data
     """
     try:
-        project_path = Path(project_data["path"])
+        repo_url = project_data.get("repo_url", "")
+        if repo_url and (repo_url.startswith("http") or "github.com" in repo_url):
+            import tempfile, subprocess
+            temp_dir = tempfile.mkdtemp(prefix="modal_cloud_scan_")
+            logger.info(f"Modal cloud worker cloning {repo_url} into container...")
+            subprocess.run(["git", "clone", "--depth", "1", repo_url, temp_dir], check=True)
+            project_path = Path(temp_dir)
+        else:
+            project_path = Path(project_data.get("path", "."))
+
         project_name = project_data.get("name")
         include_transitive = project_data.get("include_transitive", True)
         
@@ -168,7 +176,16 @@ async def full_scan_worker(project_data: Dict[str, Any]) -> Dict[str, Any]:
         import time
         start_time = time.time()
         
-        project_path = Path(project_data["path"])
+        repo_url = project_data.get("repo_url", "")
+        if repo_url and (repo_url.startswith("http") or "github.com" in repo_url):
+            import tempfile, subprocess
+            temp_dir = tempfile.mkdtemp(prefix="modal_cloud_scan_")
+            logger.info(f"Modal cloud worker cloning {repo_url} into container...")
+            subprocess.run(["git", "clone", "--depth", "1", repo_url, temp_dir], check=True)
+            project_path = Path(temp_dir)
+        else:
+            project_path = Path(project_data.get("path", "."))
+
         project_name = project_data.get("name")
         
         logger.info(f"Starting full security scan for {project_path}")
@@ -295,23 +312,21 @@ class ModalSBOMService:
         self.app = app
     
     async def generate_sbom_remote(self, project_path: Path, 
-                                 project_name: str = None) -> SBOM:
-        """Generate SBOM using Modal worker.
-        
-        Args:
-            project_path: Path to project directory
-            project_name: Optional project name
-            
-        Returns:
-            Generated SBOM
-        """
+                                 project_name: str = None,
+                                 repo_url: str = None) -> SBOM:
+        """Generate SBOM using Modal worker."""
         project_data = {
             "path": str(project_path),
-            "name": project_name
+            "name": project_name,
+            "repo_url": repo_url
         }
         
         try:
-            sbom_data = await generate_sbom_worker.remote(project_data)
+            try:
+                fn = modal.Function.from_name("renamed-project", "generate_sbom_worker")
+                sbom_data = fn.remote(project_data)
+            except Exception:
+                sbom_data = generate_sbom_worker.remote(project_data)
             return SBOM.model_validate(sbom_data)
         except Exception as e:
             logger.error(f"Remote SBOM generation failed: {e}")
@@ -331,7 +346,7 @@ class ModalSBOMService:
         """
         try:
             sbom_data = sbom.model_dump()
-            result_data = await enrich_vulnerabilities_worker.remote(sbom_data)
+            result_data = enrich_vulnerabilities_worker.remote(sbom_data)
             return ScanResult.model_validate(result_data)
         except Exception as e:
             logger.error(f"Remote vulnerability enrichment failed: {e}")
@@ -341,23 +356,21 @@ class ModalSBOMService:
             return await enricher.enrich_sbom(sbom)
     
     async def full_scan_remote(self, project_path: Path, 
-                             project_name: str = None) -> ScanResult:
-        """Perform complete security scan using Modal worker.
-        
-        Args:
-            project_path: Path to project directory
-            project_name: Optional project name
-            
-        Returns:
-            Complete scan result
-        """
+                             project_name: str = None,
+                             repo_url: str = None) -> ScanResult:
+        """Perform complete security scan using Modal worker."""
         project_data = {
             "path": str(project_path),
-            "name": project_name
+            "name": project_name,
+            "repo_url": repo_url
         }
         
         try:
-            result_data = await full_scan_worker.remote(project_data)
+            try:
+                fn = modal.Function.from_name("renamed-project", "full_scan_worker")
+                result_data = fn.remote(project_data)
+            except Exception:
+                result_data = full_scan_worker.remote(project_data)
             return ScanResult.model_validate(result_data)
         except Exception as e:
             logger.error(f"Remote scan failed: {e}")
@@ -376,7 +389,7 @@ class ModalSBOMService:
             Generated SBOM
         """
         try:
-            sbom_data = await generate_image_sbom_worker.remote(image_ref)
+            sbom_data = generate_image_sbom_worker.remote(image_ref)
             return SBOM.model_validate(sbom_data)
         except Exception as e:
             logger.error(f"Remote container image scan failed: {e}")
@@ -404,7 +417,11 @@ class ModalSBOMService:
             
             for i in range(0, len(packages_data), batch_size):
                 batch = packages_data[i:i + batch_size]
-                batch_results = await supply_chain_intelligence_worker.remote(batch)
+                try:
+                    fn = modal.Function.from_name("renamed-project", "supply_chain_intelligence_worker")
+                    batch_results = fn.remote(batch)
+                except Exception:
+                    batch_results = supply_chain_intelligence_worker.remote(batch)
                 all_results.extend(batch_results)
             
             return all_results

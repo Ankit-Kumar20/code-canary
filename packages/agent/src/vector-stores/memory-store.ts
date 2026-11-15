@@ -20,19 +20,65 @@ export class InMemoryVectorStore implements VectorStore {
     if (query.filter) {
       filteredDocs = this.documents.filter(doc => {
         return Object.entries(query.filter!).every(([key, value]) => {
-          return doc.metadata[key] === value;
+          return doc.metadata && doc.metadata[key] === value;
         });
       });
     }
 
-    const results: VectorSearchResult[] = filteredDocs.map(doc => ({
-      document: doc,
-      score: Math.random(),
-    }));
+    const queryTokens = (query.query || "")
+      .toLowerCase()
+      .split(/[^a-z0-9_-]+/)
+      .filter(t => t.length > 1);
+
+    const results: VectorSearchResult[] = filteredDocs.map(doc => {
+      let vectorScore = 0;
+      let lexicalScore = 0;
+
+      // 1. Vector similarity
+      if (query.embedding && doc.embedding) {
+        vectorScore = this.cosineSimilarity(query.embedding, doc.embedding);
+      }
+
+      // 2. Lexical / Keyword matching (BM25-style)
+      if (queryTokens.length > 0) {
+        const textContent = `${doc.id} ${doc.content} ${JSON.stringify(doc.metadata)}`.toLowerCase();
+        let matches = 0;
+        let cveMatches = 0;
+
+        for (const token of queryTokens) {
+          if (textContent.includes(token)) {
+            matches++;
+            if (token.startsWith("cve-") || doc.id.toLowerCase().includes(token)) {
+              cveMatches++;
+            }
+          }
+        }
+
+        lexicalScore = (matches + cveMatches * 2) / (queryTokens.length + 2);
+      }
+
+      // Hybrid rank combination
+      let score: number;
+      if (query.embedding && doc.embedding) {
+        score = (vectorScore * 0.65) + (lexicalScore * 0.35);
+      } else if (queryTokens.length > 0) {
+        score = lexicalScore;
+      } else {
+        score = 0.5;
+      }
+
+      // Keep within [0, 1] bounds
+      score = Math.max(0.01, Math.min(1.0, score));
+
+      return {
+        document: doc,
+        score,
+      };
+    });
 
     results.sort((a, b) => b.score - a.score);
 
-    if (query.k) {
+    if (query.k && query.k > 0) {
       return results.slice(0, query.k);
     }
 
@@ -44,7 +90,7 @@ export class InMemoryVectorStore implements VectorStore {
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) return 0;
+    if (!a || !b || a.length !== b.length || a.length === 0) return 0;
     
     let dotProduct = 0;
     let normA = 0;
@@ -56,6 +102,7 @@ export class InMemoryVectorStore implements VectorStore {
       normB += b[i] * b[i];
     }
     
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    const denom = Math.sqrt(normA) * Math.sqrt(normB);
+    return denom === 0 ? 0 : dotProduct / denom;
   }
 }

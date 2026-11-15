@@ -12,6 +12,7 @@ export interface VectorSearchResult {
 
 export interface VectorStoreQuery {
   query: string;
+  embedding?: number[];
   k?: number;
   filter?: Record<string, any>;
 }

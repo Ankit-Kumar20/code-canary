@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AskRequest } from '@dependency-canary/shared';
+import type { AskRequest } from '@dependency-canary/shared';
 import { corsResponse } from '@/lib/cors';
 import { agentService } from '@/lib/agent-service';
 
