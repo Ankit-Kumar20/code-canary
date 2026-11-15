@@ -225,77 +225,80 @@ export default function DependencyGraphViz({ sbom }: DependencyGraphVizProps) {
 
   function getSeverityColor(severity: string): string {
     switch (severity) {
-      case 'CRITICAL': return '#dc2626';
+      case 'CRITICAL': return '#e11d48';
       case 'HIGH': return '#ea580c';
       case 'MEDIUM': return '#d97706';
-      case 'LOW': return '#16a34a';
-      default: return '#6b7280';
+      case 'LOW': return '#2563eb';
+      default: return '#64748b';
     }
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Dependency Graph</h3>
+    <div className="flex flex-col gap-5 rounded-2xl border border-line bg-surface p-6 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-[16px] font-semibold text-ink">Dependency Topology Graph</h3>
+          <p className="text-[12px] text-ink-muted">Interactive visual simulation of package relationships and risk nodes</p>
+        </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Depth:</label>
+          <label className="text-[12px] font-medium text-ink-muted">Depth View:</label>
           <select
             value={depth}
             onChange={(e) => setDepth(Number(e.target.value))}
-            className="px-2 py-1 border border-gray-300 rounded text-sm"
+            className="h-8 rounded-lg border border-line bg-surface px-2.5 text-[12px] font-medium text-ink shadow-subtle transition-all hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           >
-            <option value={1}>Direct Only</option>
-            <option value={2}>Direct + Transitive</option>
-            <option value={3}>Full Graph</option>
+            <option value={1}>Direct Dependencies (1 Level)</option>
+            <option value={2}>Direct + Transitive (2 Levels)</option>
+            <option value={3}>Full Complete Tree</option>
           </select>
         </div>
       </div>
 
-      <div className="text-sm text-gray-600 mb-4">
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-            <span>Project</span>
+      <div className="flex flex-col gap-2 rounded-xl border border-line-subtle bg-canvas/40 p-3.5 text-[12px]">
+        <div className="flex items-center gap-4 flex-wrap text-ink-muted">
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-accent" />
+            <span>Root Project</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-            <span>No vulnerabilities</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+            <span>Clean / Safe</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          <div className="flex items-center gap-1.5 text-blue-600 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
             <span>Low</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+          <div className="flex items-center gap-1.5 text-amber-600 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
             <span>Medium</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+          <div className="flex items-center gap-1.5 text-orange-600 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
             <span>High</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-600"></div>
+          <div className="flex items-center gap-1.5 text-rose-600 font-bold">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
             <span>Critical</span>
           </div>
         </div>
-        <p className="mt-2">
-          Showing {graphData.nodes.length - 1} packages ({graphData.nodes.filter(n => n.direct && n.group !== 0).length} direct, {graphData.nodes.filter(n => !n.direct).length} transitive)
+        <p className="text-[11.5px] text-ink-faint">
+          Graph displaying {graphData.nodes.length - 1} connected packages ({graphData.nodes.filter(n => n.direct && n.group !== 0).length} direct, {graphData.nodes.filter(n => !n.direct).length} transitive). Drag nodes to reposition.
         </p>
       </div>
 
-      <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+      <div className="overflow-hidden rounded-xl border border-line bg-canvas/20 shadow-inner">
         <svg
           ref={svgRef}
           width="800"
           height="600"
-          className="w-full h-auto"
+          className="w-full h-auto cursor-grab active:cursor-grabbing"
           style={{ minHeight: '600px' }}
         />
       </div>
 
       {graphData.nodes.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          No dependencies to display at this depth
+        <div className="py-12 text-center text-[13px] text-ink-faint">
+          No dependency nodes to display at this depth level.
         </div>
       )}
     </div>

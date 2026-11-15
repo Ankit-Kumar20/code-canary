@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 SBOM (Software Bill of Materials) generator.
 """

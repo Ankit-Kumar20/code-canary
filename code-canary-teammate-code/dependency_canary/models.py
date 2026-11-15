@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Data models for SBOM, dependencies, and vulnerabilities.
 """

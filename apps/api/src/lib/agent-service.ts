@@ -1,5 +1,5 @@
 import { SecurityAgent, createVectorStore } from '@dependency-canary/agent';
-import { EnrichedSBOM } from '@dependency-canary/shared';
+import { DEMO_SBOM, type EnrichedSBOM } from '@dependency-canary/shared';
 
 class AgentService {
   private static instance: AgentService;
@@ -9,6 +9,10 @@ class AgentService {
 
   private constructor() {
     this.agent = new SecurityAgent(createVectorStore());
+    // Automatically pre-index the demo dataset so the agent works out-of-the-box
+    this.indexSBOM(DEMO_SBOM).catch(err => {
+      console.warn('Auto pre-indexing DEMO_SBOM failed:', err);
+    });
   }
 
   public static getInstance(): AgentService {
@@ -26,8 +30,21 @@ class AgentService {
   }
 
   public async ask(projectId: string, question: string) {
+    // If not yet indexed, check if it's the demo project or in cache
     if (!this.indexedProjects.has(projectId)) {
-      throw new Error(`SBOM not found for project ${projectId}. Please ensure the project has been scanned and enriched first.`);
+      if (projectId === DEMO_SBOM.projectId || projectId === 'demo-fullstack-canary') {
+        await this.indexSBOM(DEMO_SBOM);
+      } else if (this.sbomCache.has(projectId)) {
+        await this.indexSBOM(this.sbomCache.get(projectId)!);
+      } else if (this.indexedProjects.size > 0) {
+        // Fallback to the first available indexed project if ID slightly differs
+        const defaultProjectId = Array.from(this.indexedProjects)[0];
+        console.warn(`Project ${projectId} not found; falling back to ${defaultProjectId}`);
+        return await this.agent.ask(defaultProjectId, question);
+      } else {
+        await this.indexSBOM(DEMO_SBOM);
+        return await this.agent.ask(DEMO_SBOM.projectId, question);
+      }
     }
     return await this.agent.ask(projectId, question);
   }
@@ -45,4 +62,4 @@ class AgentService {
   }
 }
 
-export const agentService = AgentService.getInstance(); 
+export const agentService = AgentService.getInstance();

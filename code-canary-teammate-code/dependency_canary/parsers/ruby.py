@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Ruby manifest parser for Bundler projects.
 """

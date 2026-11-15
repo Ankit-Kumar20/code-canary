@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Java manifest parser for Maven and Gradle projects.
 """

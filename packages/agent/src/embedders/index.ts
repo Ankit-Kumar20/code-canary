@@ -6,12 +6,12 @@ export { OpenAIEmbedder } from "./openai-embedder";
 export { MockEmbedder } from "./mock-embedder";
 
 export function createEmbedder(): Embedder {
+  const geminiKey = process.env.GEMINI_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
   
-  if (!openaiKey) {
-    console.log("No OpenAI API key found, using mock embedder");
-    return new MockEmbedder();
+  if (geminiKey || openaiKey) {
+    return new OpenAIEmbedder(geminiKey || openaiKey);
   }
   
-  return new OpenAIEmbedder(openaiKey);
+  return new MockEmbedder();
 }
