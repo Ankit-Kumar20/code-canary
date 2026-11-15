@@ -1,6 +1,6 @@
 import { InMemoryVectorStore } from '@dependency-canary/agent';
 import type { VectorDocument, VectorSearchResult, VectorStore, VectorStoreQuery } from '@dependency-canary/shared';
-import { eq, sql } from 'drizzle-orm';
+import { cosineDistance, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { vectorDocuments } from '@/db/schema';
 
@@ -28,13 +28,21 @@ export class PostgresVectorStore implements VectorStore {
       });
   }
 
-  // Narrows candidates with the metadata filter in SQL, then ranks them with the
-  // same hybrid vector + keyword scoring as the in-memory store.
+  // Pulls the nearest candidates matching the metadata filter from the pgvector index,
+  // then re-ranks them with the same hybrid vector + keyword scoring as the in-memory store.
+  // Without a query embedding, every filtered row is scored by keywords alone.
   async search(query: VectorStoreQuery): Promise<VectorSearchResult[]> {
-    const rows = await db
-      .select()
-      .from(vectorDocuments)
-      .where(query.filter ? sql`${vectorDocuments.metadata} @> ${JSON.stringify(query.filter)}::jsonb` : undefined);
+    const where = query.filter
+      ? sql`${vectorDocuments.metadata} @> ${JSON.stringify(query.filter)}::jsonb`
+      : undefined;
+    const rows = query.embedding
+      ? await db
+          .select()
+          .from(vectorDocuments)
+          .where(where)
+          .orderBy(cosineDistance(vectorDocuments.embedding, query.embedding))
+          .limit(Math.max((query.k ?? 10) * 5, 50))
+      : await db.select().from(vectorDocuments).where(where);
 
     const ranker = new InMemoryVectorStore();
     await ranker.addDocuments(

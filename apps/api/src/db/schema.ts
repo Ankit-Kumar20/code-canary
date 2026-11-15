@@ -1,4 +1,4 @@
-import { index, jsonb, pgTable, real, text, timestamp } from 'drizzle-orm/pg-core';
+import { index, jsonb, pgTable, text, timestamp, vector } from 'drizzle-orm/pg-core';
 import type { EnrichedSBOM, ScanRequest } from '@dependency-canary/shared';
 import { user } from './auth-schema';
 
@@ -38,7 +38,10 @@ export const vectorDocuments = pgTable(
       .references(() => sboms.projectId, { onDelete: 'cascade' }),
     content: text('content').notNull(),
     metadata: jsonb('metadata').$type<Record<string, any>>().notNull(),
-    embedding: real('embedding').array(),
+    embedding: vector('embedding', { dimensions: 1536 }),
   },
-  table => [index('vector_documents_project_id_idx').on(table.projectId)],
+  table => [
+    index('vector_documents_project_id_idx').on(table.projectId),
+    index('vector_documents_embedding_idx').using('hnsw', table.embedding.op('vector_cosine_ops')),
+  ],
 );

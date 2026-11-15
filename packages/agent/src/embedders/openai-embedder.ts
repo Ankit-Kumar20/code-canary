@@ -1,6 +1,9 @@
 import OpenAI from "openai";
 import { Embedder } from "@dependency-canary/shared";
 
+// Must match the vector(1536) column in apps/api; HNSW indexes cap at 2000 dimensions.
+export const EMBEDDING_DIMENSIONS = 1536;
+
 export class OpenAIEmbedder implements Embedder {
   private client: OpenAI;
   private model: string;
@@ -27,6 +30,7 @@ export class OpenAIEmbedder implements Embedder {
       const response = await this.client.embeddings.create({
         model: this.model,
         input: text,
+        dimensions: EMBEDDING_DIMENSIONS,
       });
 
       return response.data[0].embedding;
@@ -42,6 +46,7 @@ export class OpenAIEmbedder implements Embedder {
       const response = await this.client.embeddings.create({
         model: this.model,
         input: texts,
+        dimensions: EMBEDDING_DIMENSIONS,
       });
 
       return response.data.map(item => item.embedding);
