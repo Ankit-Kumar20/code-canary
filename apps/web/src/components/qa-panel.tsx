@@ -62,39 +62,32 @@ function renderMarkdown(md: string): string {
 interface ReadyQuestion {
   label: string;
   query: string;
-  icon: string;
 }
 
 const READY_QUESTIONS: ReadyQuestion[] = [
   {
-    label: 'Single upgrade for most CVEs',
+    label: 'What single upgrade removes the most critical CVEs?',
     query: 'What single upgrade removes the most critical CVEs with minimal breakage?',
-    icon: '⚡',
   },
   {
-    label: 'Highest supply chain risks',
+    label: 'Which packages pose the highest supply chain risk?',
     query: 'Which packages pose the highest supply chain risk and have critical CVEs?',
-    icon: '🛡️',
   },
   {
-    label: 'Transitive blast radius',
+    label: 'Analyze transitive blast radius of critical vulnerabilities',
     query: 'Analyze the transitive blast radius of the highest severity vulnerability.',
-    icon: '💥',
   },
   {
-    label: 'Direct dependency risks',
+    label: 'What are the most dangerous vulnerabilities in direct dependencies?',
     query: 'What are the most dangerous vulnerabilities in direct dependencies?',
-    icon: '🔍',
   },
   {
-    label: 'Minimal breakage fix plan',
+    label: 'How can I reduce attack surface with minimal breakage?',
     query: 'How can I reduce attack surface with minimal breakage and generate IDE fixes?',
-    icon: '🔧',
   },
   {
-    label: 'Abandoned packages & cycles',
+    label: 'What abandoned packages or deep dependency cycles should I audit?',
     query: 'What abandoned packages or deep dependency cycles should I replace first?',
-    icon: '📦',
   },
 ];
 
@@ -154,97 +147,66 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
   };
 
   return (
-    <div className="w-full rounded-[28px] sm:rounded-[32px] border border-slate-200/90 bg-white p-5 sm:p-7 shadow-[0_12px_45px_-12px_rgba(15,23,42,0.08)] flex flex-col min-h-[640px] text-slate-800 transition-all font-sans">
+    <div className="w-full flex-1 rounded-[28px] sm:rounded-[36px] border border-slate-200/90 bg-white p-6 sm:p-8 lg:p-10 shadow-[0_12px_45px_-12px_rgba(15,23,42,0.08)] flex flex-col min-h-[720px] text-slate-800 transition-all font-sans">
       
-      {/* 1. Header Bar: Title on left, Upgrade Pill & Action Icons on right */}
+      {/* 1. Header Bar: Canara AI title on left, New Chat button on right */}
       <header className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-[17px] sm:text-[18px] font-semibold text-slate-900 tracking-tight">
-            Chat With AI
+          <h2 className="text-[20px] sm:text-[22px] font-bold text-slate-900 tracking-tight">
+            Canara AI
           </h2>
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#0022f4]/10 border border-[#0022f4]/25 px-2.5 py-0.5 text-[11px] font-medium text-[#0022f4]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#0022f4] animate-pulse" />
-            GraphRAG
-          </span>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Electric Blue "⚡ Upgrade" Pill Button */}
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-full bg-[#0022f4] hover:bg-[#001ad4] active:scale-[0.98] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#0022f4]/25 transition-all"
-          >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-            <span>Upgrade</span>
-          </button>
-
-          {/* Action Icons */}
-          <button
-            type="button"
-            title="Help & Documentation"
-            className="h-8 w-8 rounded-full border border-slate-200 hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            title="Perks & Features"
-            className="h-8 w-8 rounded-full border border-slate-200 hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 00-2 2v6a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2H5z" />
-            </svg>
-          </button>
-
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleResetChat}
             title="New Conversation / Reset"
-            className="h-8 w-8 rounded-full border border-slate-200 hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition-colors shadow-2xs active:scale-[0.98]"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
+            <span>New Chat</span>
           </button>
         </div>
       </header>
 
       {/* 2. Main Middle Area: Welcome State OR Message Stream */}
-      <div className="flex-1 flex flex-col justify-center min-h-[400px]">
+      <div className="flex-1 flex flex-col justify-center min-h-[460px]">
         {messages.length === 0 ? (
-          /* Empty / Welcome State with Compact Ready Question Pills */
-          <div className="flex flex-col items-center justify-center py-4 sm:py-6 px-2 text-center animate-fadeIn">
+          /* Empty / Welcome State with Stacked Questions (No Emojis) */
+          <div className="flex flex-col items-center justify-center py-6 sm:py-8 px-2 text-center animate-fadeIn">
             
-            {/* Center Glowing 3D Electric Blue Orb - Compact */}
-            <div className="relative flex items-center justify-center my-1">
-              <div className="absolute h-14 w-14 rounded-full bg-[#0022f4]/30 blur-lg animate-pulse" />
-              <div className="relative h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-[0_8px_20px_-3px_rgba(0,34,244,0.45),inset_0_-6px_12px_rgba(0,18,160,0.85),inset_0_3px_6px_rgba(147,197,253,0.75)] bg-[radial-gradient(circle_at_35%_35%,#60a5fa_0%,#0022f4_45%,#0015a8_75%,#020b50_100%)] transition-transform duration-300 hover:scale-105" />
+            {/* Center Glowing 3D Electric Blue Orb */}
+            <div className="relative flex items-center justify-center my-2">
+              <div className="absolute h-16 w-16 rounded-full bg-[#0022f4]/30 blur-xl animate-pulse" />
+              <div className="relative h-14 w-14 sm:h-16 sm:w-16 rounded-full shadow-[0_10px_30px_-5px_rgba(0,34,244,0.5),inset_0_-8px_16px_rgba(0,18,160,0.85),inset_0_4px_8px_rgba(147,197,253,0.75)] bg-[radial-gradient(circle_at_35%_35%,#60a5fa_0%,#0022f4_45%,#0015a8_75%,#020b50_100%)] transition-transform duration-300 hover:scale-105" />
             </div>
 
             {/* Welcome Greeting */}
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-3">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 mt-4">
               Welcome, {displayName}
             </h1>
-            <p className="mt-1.5 text-xs sm:text-[13px] text-slate-500 max-w-md leading-relaxed">
-              Ask anything about your supply-chain risks, or click a ready question below for an instant solution:
+            <p className="mt-1.5 text-xs sm:text-sm text-slate-500 max-w-md leading-relaxed">
+              Ask anything about your supply-chain risks, or select a question below for an immediate solution:
             </p>
 
-            {/* Ready Question Pills */}
-            <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mt-5">
+            {/* Stacked Questions (No Emojis) */}
+            <div className="flex flex-col gap-2.5 w-full max-w-xl mt-6 text-left">
               {READY_QUESTIONS.map((q, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => executeAsk(q.query)}
-                  className="group inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white hover:border-[#0022f4] hover:bg-[#0022f4]/5 px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:text-[#0022f4] active:scale-[0.98] shadow-2xs hover:shadow-sm transition-all"
+                  className="group w-full flex items-center justify-between rounded-xl border border-slate-200/90 bg-slate-50/70 hover:bg-white hover:border-[#0022f4] hover:shadow-sm px-4 py-3 text-left transition-all active:scale-[0.99]"
                 >
-                  <span className="text-[12px] opacity-80 group-hover:scale-110 transition-transform">{q.icon}</span>
-                  <span>{q.label}</span>
+                  <span className="text-xs sm:text-[13px] font-medium text-slate-700 group-hover:text-[#0022f4] transition-colors">
+                    {q.label}
+                  </span>
+                  <svg className="w-4 h-4 text-slate-400 group-hover:text-[#0022f4] group-hover:translate-x-0.5 transition-all shrink-0 ml-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               ))}
             </div>
@@ -252,7 +214,7 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
           </div>
         ) : (
           /* Active Chat Stream */
-          <div className="flex flex-col gap-6 overflow-y-auto max-h-[550px] pr-1 py-2">
+          <div className="flex flex-col gap-6 overflow-y-auto max-h-[580px] pr-1 py-2">
             {messages.map(msg => (
               <div
                 key={msg.id}
@@ -267,13 +229,13 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
                   </div>
                 ) : (
                   /* Agent message card */
-                  <div className="w-full max-w-3xl flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-slate-50/60 p-5 sm:p-6 shadow-sm">
+                  <div className="w-full max-w-4xl flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-slate-50/60 p-5 sm:p-6 shadow-sm">
                     <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-3">
                       <div className="h-6 w-6 rounded-full bg-[#0022f4]/15 text-[#0022f4] flex items-center justify-center font-bold text-xs ring-1 ring-[#0022f4]/30">
                         ⚡
                       </div>
                       <span className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                        Security Agent Verdict
+                        Canara AI Verdict
                       </span>
                       <span className="ml-auto text-[11px] font-mono text-slate-400">
                         {projectId}
@@ -395,7 +357,7 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
             {loading && (
               <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 max-w-sm text-slate-600 text-xs animate-pulse">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0022f4] border-t-transparent" />
-                <span>Security Agent analyzing GraphRAG...</span>
+                <span>Canara AI analyzing graph…</span>
               </div>
             )}
 
@@ -418,27 +380,8 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
         </div>
       )}
 
-      {/* Ready Question Pills Bar above Input */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-2 text-[11px] no-scrollbar">
-        <span className="shrink-0 font-semibold text-slate-400 uppercase text-[10px] tracking-wider mr-1">
-          Ready Questions:
-        </span>
-        {READY_QUESTIONS.map((q, idx) => (
-          <button
-            key={idx}
-            type="button"
-            onClick={() => executeAsk(q.query)}
-            disabled={loading}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-slate-50/90 hover:border-[#0022f4] hover:bg-[#0022f4]/5 hover:text-[#0022f4] active:scale-[0.98] px-2.5 py-1 text-slate-600 font-medium transition-all shadow-2xs disabled:opacity-50"
-          >
-            <span className="text-[11px]">{q.icon}</span>
-            <span>{q.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* 3. Bottom Chat Input Area matching the screenshot */}
-      <form onSubmit={handleSubmit} className="mt-1">
+      {/* 3. Bottom Chat Input Area */}
+      <form onSubmit={handleSubmit} className="mt-4">
         <div className="relative rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] focus-within:border-slate-400 focus-within:shadow-[0_4px_24px_-2px_rgba(15,23,42,0.1)] transition-all">
           
           {/* Main Input Textarea */}
