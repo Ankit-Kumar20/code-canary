@@ -59,12 +59,44 @@ function renderMarkdown(md: string): string {
   return html;
 }
 
-interface PromptStarter {
-  title: string;
-  description: string;
+interface ReadyQuestion {
+  label: string;
   query: string;
-  icon: JSX.Element;
+  icon: string;
 }
+
+const READY_QUESTIONS: ReadyQuestion[] = [
+  {
+    label: 'Single upgrade for most CVEs',
+    query: 'What single upgrade removes the most critical CVEs with minimal breakage?',
+    icon: '⚡',
+  },
+  {
+    label: 'Highest supply chain risks',
+    query: 'Which packages pose the highest supply chain risk and have critical CVEs?',
+    icon: '🛡️',
+  },
+  {
+    label: 'Transitive blast radius',
+    query: 'Analyze the transitive blast radius of the highest severity vulnerability.',
+    icon: '💥',
+  },
+  {
+    label: 'Direct dependency risks',
+    query: 'What are the most dangerous vulnerabilities in direct dependencies?',
+    icon: '🔍',
+  },
+  {
+    label: 'Minimal breakage fix plan',
+    query: 'How can I reduce attack surface with minimal breakage and generate IDE fixes?',
+    icon: '🔧',
+  },
+  {
+    label: 'Abandoned packages & cycles',
+    query: 'What abandoned packages or deep dependency cycles should I replace first?',
+    icon: '📦',
+  },
+];
 
 export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -74,69 +106,6 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const displayName = userName?.split(' ')[0] || 'Maya';
-
-  const promptStarters: PromptStarter[] = [
-    {
-      title: 'Write Copy',
-      description: 'Audit direct packages & craft vulnerability report.',
-      query: 'Which packages pose the highest supply chain risk and have critical CVEs?',
-      icon: (
-        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Blast Radius',
-      description: 'Map transitive dependency exposure across services.',
-      query: 'Analyze the transitive blast radius of the highest severity vulnerability.',
-      icon: (
-        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Research',
-      description: 'Quickly gather and summarize CVE intelligence.',
-      query: 'What are the most dangerous vulnerabilities in direct dependencies?',
-      icon: (
-        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Generate Article',
-      description: 'Produce single-upgrade recommendations instantly.',
-      query: 'What single upgrade removes the most critical CVEs with minimal breakage?',
-      icon: (
-        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Data Analytics',
-      description: 'Analyze SBOM graph topology and cycles.',
-      query: 'Analyze the dependency graph topology for abandoned packages or deep dependency chains.',
-      icon: (
-        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Generate Code',
-      description: 'Produce accurate package upgrade and pin patches.',
-      query: 'How can I reduce attack surface with minimal breakage and generate IDE fixes?',
-      icon: (
-        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-        </svg>
-      ),
-    },
-  ];
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -177,10 +146,6 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     executeAsk(input);
-  };
-
-  const handleStarterClick = (query: string) => {
-    executeAsk(query);
   };
 
   const handleResetChat = () => {
@@ -252,43 +217,34 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
       {/* 2. Main Middle Area: Welcome State OR Message Stream */}
       <div className="flex-1 flex flex-col justify-center min-h-[400px]">
         {messages.length === 0 ? (
-          /* Empty / Welcome State matching the provided screenshot */
+          /* Empty / Welcome State with Compact Ready Question Pills */
           <div className="flex flex-col items-center justify-center py-4 sm:py-6 px-2 text-center animate-fadeIn">
             
-            {/* Center Glowing 3D Electric Blue Orb */}
-            <div className="relative flex items-center justify-center my-2">
-              <div className="absolute h-20 w-20 rounded-full bg-[#0022f4]/35 blur-xl animate-pulse" />
-              <div className="relative h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-full shadow-[0_10px_30px_-5px_rgba(0,34,244,0.5),inset_0_-8px_16px_rgba(0,18,160,0.85),inset_0_4px_8px_rgba(147,197,253,0.75)] bg-[radial-gradient(circle_at_35%_35%,#60a5fa_0%,#0022f4_45%,#0015a8_75%,#020b50_100%)] transition-transform duration-300 hover:scale-105" />
+            {/* Center Glowing 3D Electric Blue Orb - Compact */}
+            <div className="relative flex items-center justify-center my-1">
+              <div className="absolute h-14 w-14 rounded-full bg-[#0022f4]/30 blur-lg animate-pulse" />
+              <div className="relative h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-[0_8px_20px_-3px_rgba(0,34,244,0.45),inset_0_-6px_12px_rgba(0,18,160,0.85),inset_0_3px_6px_rgba(147,197,253,0.75)] bg-[radial-gradient(circle_at_35%_35%,#60a5fa_0%,#0022f4_45%,#0015a8_75%,#020b50_100%)] transition-transform duration-300 hover:scale-105" />
             </div>
 
             {/* Welcome Greeting */}
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 mt-4 sm:mt-5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-3">
               Welcome, {displayName}
             </h1>
-            <p className="mt-2 text-xs sm:text-sm text-slate-500 max-w-md leading-relaxed">
-              Start by scripting a task, and let the chat take over.<br className="hidden sm:inline" /> Not sure where to start?
+            <p className="mt-1.5 text-xs sm:text-[13px] text-slate-500 max-w-md leading-relaxed">
+              Ask anything about your supply-chain risks, or click a ready question below for an instant solution:
             </p>
 
-            {/* 6 Quick Action Cards (3 columns x 2 rows) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 w-full max-w-4xl mt-7 sm:mt-8 text-left">
-              {promptStarters.map((card, idx) => (
+            {/* Ready Question Pills */}
+            <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mt-5">
+              {READY_QUESTIONS.map((q, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => handleStarterClick(card.query)}
-                  className="group relative flex flex-col rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-4.5 shadow-[0_2px_8px_-2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_24px_-4px_rgba(15,23,42,0.08)] hover:border-slate-300/90 active:scale-[0.99] transition-all text-left"
+                  onClick={() => executeAsk(q.query)}
+                  className="group inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white hover:border-[#0022f4] hover:bg-[#0022f4]/5 px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:text-[#0022f4] active:scale-[0.98] shadow-2xs hover:shadow-sm transition-all"
                 >
-                  {/* Dark Rounded Square Icon Badge */}
-                  <div className="h-7 w-7 rounded-lg bg-slate-900 flex items-center justify-center shrink-0 mb-3 group-hover:bg-[#0022f4] transition-colors">
-                    {card.icon}
-                  </div>
-                  
-                  <span className="text-sm font-semibold text-slate-900 group-hover:text-[#0022f4] transition-colors">
-                    {card.title}
-                  </span>
-                  <span className="text-xs text-slate-500 mt-1 leading-snug line-clamp-2">
-                    {card.description}
-                  </span>
+                  <span className="text-[12px] opacity-80 group-hover:scale-110 transition-transform">{q.icon}</span>
+                  <span>{q.label}</span>
                 </button>
               ))}
             </div>
@@ -462,8 +418,27 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
         </div>
       )}
 
+      {/* Ready Question Pills Bar above Input */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-2 text-[11px] no-scrollbar">
+        <span className="shrink-0 font-semibold text-slate-400 uppercase text-[10px] tracking-wider mr-1">
+          Ready Questions:
+        </span>
+        {READY_QUESTIONS.map((q, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => executeAsk(q.query)}
+            disabled={loading}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-slate-50/90 hover:border-[#0022f4] hover:bg-[#0022f4]/5 hover:text-[#0022f4] active:scale-[0.98] px-2.5 py-1 text-slate-600 font-medium transition-all shadow-2xs disabled:opacity-50"
+          >
+            <span className="text-[11px]">{q.icon}</span>
+            <span>{q.label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* 3. Bottom Chat Input Area matching the screenshot */}
-      <form onSubmit={handleSubmit} className="mt-4 sm:mt-5">
+      <form onSubmit={handleSubmit} className="mt-1">
         <div className="relative rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] focus-within:border-slate-400 focus-within:shadow-[0_4px_24px_-2px_rgba(15,23,42,0.1)] transition-all">
           
           {/* Main Input Textarea */}
