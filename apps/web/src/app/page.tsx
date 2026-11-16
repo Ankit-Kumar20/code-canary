@@ -578,6 +578,56 @@ export default function HomePage() {
 /* -------------------------------------------------------------------------- */
 /*                                EmptyScan                                   */
 /* -------------------------------------------------------------------------- */
+const SECURITY_INSIGHTS = [
+  'Transitive dependencies can introduce vulnerabilities even when your direct dependencies are secure.',
+  'An SBOM provides a complete inventory of software components and their dependencies.',
+  'CVEs help identify publicly disclosed security vulnerabilities.',
+  'The same vulnerable package can affect multiple projects through different dependency paths.',
+  'License compliance is an important part of software supply-chain security.',
+  'Outdated dependencies can expose applications to known security risks.',
+  'OSV and NVD provide vulnerability information for software packages.',
+];
+
+function ContextualInsightLoader() {
+  const [insightIndex, setInsightIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setVisible(false);
+      const fadeTimeout = setTimeout(() => {
+        setInsightIndex(prev => (prev + 1) % SECURITY_INSIGHTS.length);
+        setVisible(true);
+      }, 250);
+      return () => clearTimeout(fadeTimeout);
+    }, 4500);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div
+      className="mt-3.5 flex w-full flex-col gap-1.5 rounded-xl border border-line bg-surface p-3.5 text-left shadow-sm transition-colors"
+      role="region"
+      aria-label="Security Insight"
+    >
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent">
+        <IconSparkle className="h-3.5 w-3.5 shrink-0 text-accent" />
+        <span>Security Insight</span>
+      </div>
+      <div className="flex min-h-[36px] items-center" aria-live="polite" aria-atomic="true">
+        <p
+          className={`text-[12.5px] leading-relaxed text-ink-muted transition-all duration-300 ease-in-out ${
+            visible ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'
+          }`}
+        >
+          {SECURITY_INSIGHTS[insightIndex]}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function EmptyScan({
   loading,
   refType,
@@ -616,14 +666,23 @@ function EmptyScan({
             { label: 'Evaluating license compliance & maintainer risk', done: false },
           ].map((step, i) => (
             <div key={i} className="flex items-center gap-3 py-1.5 text-left text-[12px]">
-              <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${step.done ? 'bg-accent text-white' : 'border border-line animate-pulse'}`}>
-                {step.done ? '✓' : ''}
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                {step.done ? (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white">
+                    ✓
+                  </span>
+                ) : (
+                  <span className="flex h-4 w-4 items-center justify-center text-accent" aria-label="Processing">
+                    <IconSpinner className="h-3.5 w-3.5" />
+                  </span>
+                )}
               </span>
-              <span className={step.done ? 'text-ink font-medium' : 'text-ink-faint'}>{step.label}</span>
-              {!step.done && <span className="ml-auto text-[11px] font-mono text-accent animate-pulse">Running…</span>}
+              <span className="font-medium text-ink">{step.label}</span>
             </div>
           ))}
         </div>
+
+        <ContextualInsightLoader />
       </div>
     );
   }
@@ -1574,6 +1633,23 @@ function IconShieldCheck() {
     <svg {...iconProps}>
       <path d="M8 1.75 13.5 4v4c0 3.25-2.5 5.5-5.5 6.25C5 13.5 2.5 11.25 2.5 8V4L8 1.75Z" />
       <path d="m5.5 8 2 2 3.5-3.5" />
+    </svg>
+  );
+}
+
+function IconSpinner({ className = 'h-3.5 w-3.5' }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
+      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconSparkle({ className = 'h-3.5 w-3.5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M8 1c.4 3.6 3.4 6.6 7 7-3.6.4-6.6 3.4-7 7-.4-3.6-3.4-6.6-7-7 3.6-.4 6.6-3.4 7-7Z" />
     </svg>
   );
 }
