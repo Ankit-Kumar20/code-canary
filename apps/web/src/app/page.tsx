@@ -202,18 +202,29 @@ export default function HomePage() {
             }`}
         >
           {!collapsed ? (
-            <div className="flex items-center gap-2.5 min-w-0 pr-4">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-[12px] font-bold text-white shadow-sm">
-                C
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#0022f4] to-[#001ad4] text-white shadow-sm shadow-[#0022f4]/25 ring-1 ring-white/20">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-[13px] font-semibold tracking-tight text-ink leading-tight truncate">Code Canary</span>
-                <span className="text-[11px] text-ink-faint truncate">Security & SBOM</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[13.5px] font-bold tracking-tight text-ink leading-tight">Code Canary</span>
+                  <span className="rounded-full bg-[#0022f4]/10 px-1.5 py-0.2 text-[9.5px] font-bold text-[#0022f4] uppercase tracking-wider">
+                    v2
+                  </span>
+                </div>
+                <span className="text-[11px] text-ink-faint truncate font-medium">Supply Chain &amp; SBOM AI</span>
               </div>
             </div>
           ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-[12px] font-bold text-white shadow-sm">
-              C
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#0022f4] to-[#001ad4] text-white shadow-sm shadow-[#0022f4]/25">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
             </div>
           )}
         </div>
@@ -301,10 +312,10 @@ export default function HomePage() {
             >
               <span
                 className={`h-2.5 w-2.5 rounded-full ${criticalCount > 0
-                    ? 'bg-critical ring-2 ring-critical/20'
-                    : highCount > 0
-                      ? 'bg-high ring-2 ring-high/20'
-                      : 'bg-success ring-2 ring-success/20'
+                  ? 'bg-critical ring-2 ring-critical/20'
+                  : highCount > 0
+                    ? 'bg-high ring-2 ring-high/20'
+                    : 'bg-success ring-2 ring-success/20'
                   }`}
               />
             </div>
@@ -378,8 +389,8 @@ export default function HomePage() {
                     setSelected(null);
                   }}
                   className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-30 ${active
-                      ? 'bg-accent/10 text-accent font-semibold shadow-sm'
-                      : 'text-ink-muted hover:bg-hover hover:text-ink'
+                    ? 'bg-accent/10 text-accent font-semibold shadow-sm'
+                    : 'text-ink-muted hover:bg-hover hover:text-ink'
                     }`}
                 >
                   <span>{item.icon(!!active)}</span>
@@ -401,8 +412,8 @@ export default function HomePage() {
                   setSelected(null);
                 }}
                 className={`group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-left text-[12.5px] transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 ${active
-                    ? 'bg-accent/10 font-semibold text-accent shadow-sm'
-                    : 'text-ink-muted hover:bg-hover hover:text-ink font-medium'
+                  ? 'bg-accent/10 font-semibold text-accent shadow-sm'
+                  : 'text-ink-muted hover:bg-hover hover:text-ink font-medium'
                   }`}
               >
                 <span className={`transition-colors duration-150 ${active ? 'text-accent' : 'text-ink-faint group-hover:text-ink'}`}>
@@ -412,10 +423,10 @@ export default function HomePage() {
                 {count !== undefined && (
                   <span
                     className={`tabular-nums rounded-full font-mono px-2 py-0.5 text-[11px] font-semibold ${active
-                        ? 'bg-accent/20 text-accent'
-                        : item.id === 'vulnerabilities' && count > 0
-                          ? 'bg-critical-bg text-critical'
-                          : 'bg-canvas text-ink-faint'
+                      ? 'bg-accent/20 text-accent'
+                      : item.id === 'vulnerabilities' && count > 0
+                        ? 'bg-critical-bg text-critical'
+                        : 'bg-canvas text-ink-faint'
                       }`}
                   >
                     {count}
@@ -465,9 +476,9 @@ export default function HomePage() {
       {/* -------------------- Main Workspace Viewport -------------------- */}
       <div className="flex min-w-0 flex-1 flex-col bg-surface overflow-hidden">
         {/* Top Header Bar */}
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-line px-8 bg-surface">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-line px-6 sm:px-8 bg-surface">
           {/* Breadcrumbs */}
-          <div className="flex items-center gap-2 text-[13px]">
+          <div className="flex items-center gap-2.5 text-[13px]">
             {sbom ? (
               <>
                 <span className="font-mono text-ink-muted text-[12px] bg-canvas px-2.5 py-1 rounded-md border border-line">
@@ -478,23 +489,33 @@ export default function HomePage() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-accent" />
+                <span className="flex h-2 w-2 rounded-full bg-[#0022f4] animate-pulse" />
                 <span className="font-semibold text-ink">New Dependency Scan</span>
+                <span className="hidden sm:inline-flex rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                  Ready to audit
+                </span>
               </div>
             )}
           </div>
 
-          {/* Action Buttons */}
-          {sbom && (
-            <button
-              type="button"
-              onClick={handleGenerateReport}
-              className="flex h-9 items-center gap-2 rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-medium text-ink shadow-sm transition-all duration-150 hover:bg-hover hover:border-line-strong active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              <IconDownload />
-              <span>Export PDF Report</span>
-            </button>
-          )}
+          {/* Right Header Status & Action Buttons */}
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 text-xs text-ink-muted bg-canvas px-3 py-1.5 rounded-full border border-line">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-medium text-slate-600">OSV &amp; NVD Live Feed</span>
+            </div>
+
+            {sbom && (
+              <button
+                type="button"
+                onClick={handleGenerateReport}
+                className="flex h-9 items-center gap-2 rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-medium text-ink shadow-sm transition-all duration-150 hover:bg-hover hover:border-line-strong active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <IconDownload />
+                <span>Export PDF Report</span>
+              </button>
+            )}
+          </div>
         </header>
 
         {/* Global Error Banner */}
@@ -543,8 +564,12 @@ export default function HomePage() {
                 <DependencyGraphViz sbom={sbom} />
               </div>
             ) : (
-              <div className="p-8 max-w-4xl mx-auto">
-                <QAPanel projectId={sbom.projectId} onAsk={handleAsk} />
+              <div className="p-3 sm:p-5 lg:p-6 w-full max-w-7xl mx-auto flex-1 flex flex-col min-h-0">
+                <QAPanel
+                  projectId={sbom.projectId}
+                  userName={session?.user?.name}
+                  onAsk={handleAsk}
+                />
               </div>
             )}
           </main>
@@ -560,6 +585,55 @@ export default function HomePage() {
 /* -------------------------------------------------------------------------- */
 /*                                EmptyScan                                   */
 /* -------------------------------------------------------------------------- */
+const SECURITY_INSIGHTS = [
+  'Transitive dependencies can introduce vulnerabilities even when your direct dependencies are secure.',
+  'An SBOM provides a complete inventory of software components and their dependencies.',
+  'CVEs help identify publicly disclosed security vulnerabilities.',
+  'The same vulnerable package can affect multiple projects through different dependency paths.',
+  'License compliance is an important part of software supply-chain security.',
+  'Outdated dependencies can expose applications to known security risks.',
+  'OSV and NVD provide vulnerability information for software packages.',
+];
+
+function ContextualInsightLoader() {
+  const [insightIndex, setInsightIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setVisible(false);
+      const fadeTimeout = setTimeout(() => {
+        setInsightIndex(prev => (prev + 1) % SECURITY_INSIGHTS.length);
+        setVisible(true);
+      }, 250);
+      return () => clearTimeout(fadeTimeout);
+    }, 4500);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div
+      className="mt-3.5 flex w-full flex-col gap-1.5 rounded-xl border border-line bg-surface p-3.5 text-left shadow-sm transition-colors"
+      role="region"
+      aria-label="Security Insight"
+    >
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent">
+        <IconSparkle className="h-3.5 w-3.5 shrink-0 text-accent" />
+        <span>Security Insight</span>
+      </div>
+      <div className="flex min-h-[36px] items-center" aria-live="polite" aria-atomic="true">
+        <p
+          className={`text-[12.5px] leading-relaxed text-ink-muted transition-all duration-300 ease-in-out ${visible ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'
+            }`}
+        >
+          {SECURITY_INSIGHTS[insightIndex]}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function EmptyScan({
   loading,
   refType,
@@ -598,40 +672,50 @@ function EmptyScan({
             { label: 'Evaluating license compliance & maintainer risk', done: false },
           ].map((step, i) => (
             <div key={i} className="flex items-center gap-3 py-1.5 text-left text-[12px]">
-              <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${step.done ? 'bg-accent text-white' : 'border border-line animate-pulse'}`}>
-                {step.done ? '✓' : ''}
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                {step.done ? (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white">
+                    ✓
+                  </span>
+                ) : (
+                  <span className="flex h-4 w-4 items-center justify-center text-accent" aria-label="Processing">
+                    <IconSpinner className="h-3.5 w-3.5" />
+                  </span>
+                )}
               </span>
-              <span className={step.done ? 'text-ink font-medium' : 'text-ink-faint'}>{step.label}</span>
-              {!step.done && <span className="ml-auto text-[11px] font-mono text-accent animate-pulse">Running…</span>}
+              <span className="font-medium text-ink">{step.label}</span>
             </div>
           ))}
         </div>
+
+        <ContextualInsightLoader />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-8 px-6 pt-[12vh]">
+    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6 py-8 sm:py-12">
       {/* Title */}
       <div className="flex flex-col gap-2 text-center items-center">
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/5 px-3 py-0.5 text-[11px] font-semibold text-accent uppercase tracking-wider">
-          AI-Powered SBOM & Advisory Engine
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#0022f4]/20 bg-[#0022f4]/5 px-3.5 py-1 text-[11px] font-semibold text-[#0022f4] uppercase tracking-wider">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#0022f4] animate-pulse" />
+          AI-Powered SBOM &amp; Advisory Engine
         </div>
-        <h1 className="text-[28px] font-bold tracking-tight text-ink">
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink mt-2">
           Audit Project Dependencies
         </h1>
-        <p className="max-w-md text-[13.5px] text-ink-muted leading-relaxed">
-          Uncover vulnerabilities, pinpoint supply-chain risks, inspect transitive links, and generate actionable remediation plans.
+        <p className="max-w-2xl text-sm sm:text-[15px] text-ink-muted leading-relaxed mt-1">
+          Uncover critical CVEs, pinpoint supply-chain risks, inspect transitive links, and generate actionable remediation plans with zero hallucinations.
         </p>
       </div>
 
       {/* Main Scan Form Card */}
       <form
         onSubmit={onSubmit}
-        className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-card"
+        className="flex flex-col gap-5 rounded-2xl border border-line bg-surface p-6 sm:p-7 shadow-card"
       >
         {/* Source Type Selector */}
-        <div role="radiogroup" aria-label="Source type" className="grid grid-cols-3 gap-1 rounded-lg bg-canvas p-1 border border-line">
+        <div role="radiogroup" aria-label="Source type" className="grid grid-cols-3 gap-1.5 rounded-xl bg-canvas p-1.5 border border-line">
           {REF_TYPES.map(t => (
             <button
               key={t.id}
@@ -639,21 +723,21 @@ function EmptyScan({
               role="radio"
               aria-checked={refType === t.id}
               onClick={() => setRefType(t.id)}
-              className={`flex h-8 items-center justify-center gap-1.5 rounded-md text-[12px] font-medium transition-all duration-150 ${refType === t.id
-                  ? 'bg-surface text-ink font-semibold shadow-sm'
-                  : 'text-ink-muted hover:text-ink hover:bg-hover'
+              className={`flex h-9 items-center justify-center gap-2 rounded-lg text-[12.5px] font-medium transition-all duration-150 ${refType === t.id
+                ? 'bg-surface text-ink font-semibold shadow-sm'
+                : 'text-ink-muted hover:text-ink hover:bg-hover'
                 }`}
             >
-              <span className={refType === t.id ? 'text-accent' : 'text-ink-faint'}>{t.icon}</span>
+              <span className={refType === t.id ? 'text-[#0022f4]' : 'text-ink-faint'}>{t.icon}</span>
               <span>{t.label}</span>
             </button>
           ))}
         </div>
 
         {/* Input & Submit */}
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2.5">
           <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-faint">
               <IconLink />
             </span>
             <input
@@ -664,46 +748,128 @@ function EmptyScan({
               placeholder={current.placeholder}
               autoComplete="off"
               spellCheck={false}
-              className="h-10 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-[13px] text-ink placeholder:text-ink-faint transition-all duration-150 hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="h-11 w-full rounded-xl border border-line bg-surface pl-10 pr-3 text-[13.5px] text-ink placeholder:text-ink-faint transition-all duration-150 hover:border-line-strong focus:border-[#0022f4] focus:outline-none focus:ring-2 focus:ring-[#0022f4]/15"
             />
           </div>
           <button
             type="submit"
             disabled={!value.trim()}
-            className="flex h-10 items-center justify-center gap-2 rounded-lg bg-accent px-5 text-[13px] font-semibold text-white shadow transition-all duration-150 hover:bg-accent-hover active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint disabled:shadow-none"
+            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0022f4] hover:bg-[#001ad4] px-6 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0022f4] disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint disabled:shadow-none"
           >
-            <span>Run Audit</span>
+            <span>Run Security Audit</span>
             <IconArrowRight />
+          </button>
+        </div>
+
+        {/* 1-Click Try Popular Samples */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-line text-xs text-ink-muted">
+          <span className="font-semibold text-ink-faint text-[11px] uppercase tracking-wider">Quick Samples:</span>
+          <button
+            type="button"
+            onClick={() => {
+              setRefType('git');
+              setValue('https://github.com/expressjs/express');
+            }}
+            className="rounded-lg border border-line bg-canvas/60 px-2.5 py-1 font-mono text-[11.5px] text-ink-muted hover:border-[#0022f4] hover:bg-[#0022f4]/5 hover:text-[#0022f4] transition-colors"
+          >
+            expressjs/express
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setRefType('git');
+              setValue('https://github.com/tiangolo/fastapi');
+            }}
+            className="rounded-lg border border-line bg-canvas/60 px-2.5 py-1 font-mono text-[11.5px] text-ink-muted hover:border-[#0022f4] hover:bg-[#0022f4]/5 hover:text-[#0022f4] transition-colors"
+          >
+            tiangolo/fastapi
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setRefType('git');
+              setValue('https://github.com/vercel/next.js');
+            }}
+            className="rounded-lg border border-line bg-canvas/60 px-2.5 py-1 font-mono text-[11.5px] text-ink-muted hover:border-[#0022f4] hover:bg-[#0022f4]/5 hover:text-[#0022f4] transition-colors"
+          >
+            vercel/next.js
+          </button>
+          <button
+            type="button"
+            onClick={onDemo}
+            className="sm:ml-auto inline-flex items-center gap-1 font-semibold text-[#0022f4] hover:text-[#001ad4] transition-colors"
+          >
+            <span>⚡ Instant Demo Sandbox</span>
           </button>
         </div>
       </form>
 
-      {/* Demo Link & Props */}
-      <div className="flex flex-col items-center gap-4 text-center">
-        <p className="text-[12.5px] text-ink-muted">
-          Want to test right now?{' '}
-          <button
-            type="button"
-            onClick={onDemo}
-            className="font-semibold text-accent underline underline-offset-4 hover:text-accent-hover transition-colors"
-          >
-            Load sample repository audit
-          </button>
-        </p>
+      {/* Feature Highlights & Intelligence Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 w-full">
+        <div className="flex flex-col gap-1.5 p-4 rounded-xl border border-line bg-surface shadow-2xs hover:shadow-sm hover:border-[#0022f4]/40 transition-all">
+          <div className="flex items-center gap-2 text-ink font-semibold text-[13px]">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0022f4]/10 text-[#0022f4]">
+              <IconBox active={false} />
+            </div>
+            <span>CycloneDX SBOM</span>
+          </div>
+          <p className="text-[12px] text-ink-muted leading-relaxed">
+            Full manifest &amp; lockfile resolution across npm, PyPI, Go, and Cargo.
+          </p>
+        </div>
 
-        <div className="grid grid-cols-3 gap-3 w-full pt-4 border-t border-line text-left">
-          <div className="flex flex-col gap-0.5 p-3 rounded-lg border border-line-subtle bg-canvas/40">
-            <span className="text-[12px] font-semibold text-ink">CycloneDX SBOM</span>
-            <span className="text-[11px] text-ink-faint">Complete manifest hierarchy</span>
+        <div className="flex flex-col gap-1.5 p-4 rounded-xl border border-line bg-surface shadow-2xs hover:shadow-sm hover:border-[#0022f4]/40 transition-all">
+          <div className="flex items-center gap-2 text-ink font-semibold text-[13px]">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0022f4]/10 text-[#0022f4]">
+              <IconShield active={false} />
+            </div>
+            <span>CVE &amp; NVD Intel</span>
           </div>
-          <div className="flex flex-col gap-0.5 p-3 rounded-lg border border-line-subtle bg-canvas/40">
-            <span className="text-[12px] font-semibold text-ink">CVE & GHSA Feed</span>
-            <span className="text-[11px] text-ink-faint">Live vulnerability scoring</span>
+          <p className="text-[12px] text-ink-muted leading-relaxed">
+            Real-time vulnerability feeds enriched with EPSS exploitability scoring.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5 p-4 rounded-xl border border-line bg-surface shadow-2xs hover:shadow-sm hover:border-[#0022f4]/40 transition-all">
+          <div className="flex items-center gap-2 text-ink font-semibold text-[13px]">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0022f4]/10 text-[#0022f4]">
+              <IconGraph active={false} />
+            </div>
+            <span>Blast Radius Graph</span>
           </div>
-          <div className="flex flex-col gap-0.5 p-3 rounded-lg border border-line-subtle bg-canvas/40">
-            <span className="text-[12px] font-semibold text-ink">AI Security Agent</span>
-            <span className="text-[11px] text-ink-faint">Guided remediation plans</span>
+          <p className="text-[12px] text-ink-muted leading-relaxed">
+            Interactive topology to trace vulnerable transitive dependency chains.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5 p-4 rounded-xl border border-line bg-surface shadow-2xs hover:shadow-sm hover:border-[#0022f4]/40 transition-all">
+          <div className="flex items-center gap-2 text-ink font-semibold text-[13px]">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0022f4]/10 text-[#0022f4]">
+              <IconSpark active={false} />
+            </div>
+            <span>Canara AI Advisory</span>
           </div>
+          <p className="text-[12px] text-ink-muted leading-relaxed">
+            GraphRAG security reasoning with copyable IDE fix directives for VS Code.
+          </p>
+        </div>
+      </div>
+
+      {/* Standards & Ecosystem Ribbon */}
+      <div className="flex flex-wrap items-center justify-between border-t border-line pt-6 text-[12px] text-ink-faint gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="font-semibold uppercase tracking-wider text-[10.5px]">Supported Ecosystems:</span>
+          <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-ink-muted">
+            <span className="rounded bg-canvas border border-line px-2 py-0.5">npm / pnpm / yarn</span>
+            <span className="rounded bg-canvas border border-line px-2 py-0.5">pip / requirements</span>
+            <span className="rounded bg-canvas border border-line px-2 py-0.5">go.mod</span>
+            <span className="rounded bg-canvas border border-line px-2 py-0.5">Cargo.lock</span>
+            <span className="rounded bg-canvas border border-line px-2 py-0.5">Docker / OCI</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-ink-muted">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span>NVD · OSV · GHSA · CISA KEV Synchronized</span>
         </div>
       </div>
     </div>
@@ -1140,8 +1306,8 @@ function VulnerabilityList({
                   type="button"
                   onClick={() => setSeverityFilter(sev)}
                   className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-all duration-150 ${isActive
-                      ? 'bg-surface text-ink font-semibold shadow-sm'
-                      : 'text-ink-muted hover:text-ink'
+                    ? 'bg-surface text-ink font-semibold shadow-sm'
+                    : 'text-ink-muted hover:text-ink'
                     }`}
                 >
                   <span className="capitalize">{sev === 'ALL' ? 'All' : sev.toLowerCase()}</span>
@@ -1221,10 +1387,10 @@ function VulnerabilityList({
                       <div className="text-right">
                         <span
                           className={`inline-block font-mono text-[11.5px] font-bold tabular-nums px-2 py-0.5 rounded ${v.cvss >= 9
-                              ? 'bg-critical-bg text-critical'
-                              : v.cvss >= 7
-                                ? 'bg-high-bg text-high'
-                                : 'bg-canvas text-ink-muted border border-line-subtle'
+                            ? 'bg-critical-bg text-critical'
+                            : v.cvss >= 7
+                              ? 'bg-high-bg text-high'
+                              : 'bg-canvas text-ink-muted border border-line-subtle'
                             }`}
                         >
                           {v.cvss.toFixed(1)}
@@ -1323,10 +1489,10 @@ function PackageDetail({ pkg, onClose, projectId }: { pkg: Package; onClose: () 
                 <span className="font-mono text-[12px] font-bold text-ink">{v.id}</span>
                 <span
                   className={`ml-auto font-mono text-[11px] font-bold tabular-nums px-2 py-0.5 rounded ${v.cvss >= 9
-                      ? 'bg-critical-bg text-critical'
-                      : v.cvss >= 7
-                        ? 'bg-high-bg text-high'
-                        : 'bg-canvas text-ink-muted'
+                    ? 'bg-critical-bg text-critical'
+                    : v.cvss >= 7
+                      ? 'bg-high-bg text-high'
+                      : 'bg-canvas text-ink-muted'
                     }`}
                 >
                   CVSS {v.cvss.toFixed(1)}
@@ -1547,6 +1713,23 @@ function IconShieldCheck() {
     <svg {...iconProps}>
       <path d="M8 1.75 13.5 4v4c0 3.25-2.5 5.5-5.5 6.25C5 13.5 2.5 11.25 2.5 8V4L8 1.75Z" />
       <path d="m5.5 8 2 2 3.5-3.5" />
+    </svg>
+  );
+}
+
+function IconSpinner({ className = 'h-3.5 w-3.5' }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
+      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconSparkle({ className = 'h-3.5 w-3.5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M8 1c.4 3.6 3.4 6.6 7 7-3.6.4-6.6 3.4-7 7-.4-3.6-3.4-6.6-7-7 3.6-.4 6.6-3.4 7-7Z" />
     </svg>
   );
 }
