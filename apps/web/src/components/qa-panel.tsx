@@ -47,10 +47,10 @@ function renderMarkdown(md: string): string {
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
 
   // 5. Bullet items
-  html = html.replace(/^\s*-\s+(.*$)/gim, '<li class="flex items-start gap-2 py-0.5"><span class="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0"></span><span>$1</span></li>');
+  html = html.replace(/^\s*-\s+(.*$)/gim, '<li class="flex items-start gap-2 py-0.5"><span class="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#0022f4] shrink-0"></span><span>$1</span></li>');
 
   // 6. Numbered list items
-  html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li class="flex items-start gap-2 py-0.5"><span class="font-mono text-[11px] font-bold text-emerald-600 shrink-0 mt-0.5">$1.</span><span>$2</span></li>');
+  html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li class="flex items-start gap-2 py-0.5"><span class="font-mono text-[11px] font-bold text-[#0022f4] shrink-0 mt-0.5">$1.</span><span>$2</span></li>');
 
   // 7. Paragraph spacing
   html = html.replace(/\n\n/g, '<div class="h-2"></div>');
@@ -197,17 +197,17 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
           <h2 className="text-[17px] sm:text-[18px] font-semibold text-slate-900 tracking-tight">
             Chat With AI
           </h2>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#0022f4]/10 border border-[#0022f4]/25 px-2.5 py-0.5 text-[11px] font-medium text-[#0022f4]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#0022f4] animate-pulse" />
             GraphRAG
           </span>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Green "⚡ Upgrade" Pill Button */}
+          {/* Electric Blue "⚡ Upgrade" Pill Button */}
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-full bg-[#10b981] hover:bg-[#059669] active:scale-[0.98] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all"
+            className="flex items-center gap-1.5 rounded-full bg-[#0022f4] hover:bg-[#001ad4] active:scale-[0.98] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#0022f4]/25 transition-all"
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -255,10 +255,10 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
           /* Empty / Welcome State matching the provided screenshot */
           <div className="flex flex-col items-center justify-center py-4 sm:py-6 px-2 text-center animate-fadeIn">
             
-            {/* Center Glowing 3D Orb */}
+            {/* Center Glowing 3D Electric Blue Orb */}
             <div className="relative flex items-center justify-center my-2">
-              <div className="absolute h-20 w-20 rounded-full bg-emerald-400/35 blur-xl animate-pulse" />
-              <div className="relative h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-full shadow-[0_10px_25px_-5px_rgba(16,185,129,0.5),inset_0_-8px_16px_rgba(4,120,87,0.85),inset_0_4px_8px_rgba(167,243,208,0.7)] bg-[radial-gradient(circle_at_35%_35%,#6ee7b7_0%,#10b981_40%,#047857_75%,#064e3b_100%)] transition-transform duration-300 hover:scale-105" />
+              <div className="absolute h-20 w-20 rounded-full bg-[#0022f4]/35 blur-xl animate-pulse" />
+              <div className="relative h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-full shadow-[0_10px_30px_-5px_rgba(0,34,244,0.5),inset_0_-8px_16px_rgba(0,18,160,0.85),inset_0_4px_8px_rgba(147,197,253,0.75)] bg-[radial-gradient(circle_at_35%_35%,#60a5fa_0%,#0022f4_45%,#0015a8_75%,#020b50_100%)] transition-transform duration-300 hover:scale-105" />
             </div>
 
             {/* Welcome Greeting */}
@@ -279,11 +279,11 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
                   className="group relative flex flex-col rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-4.5 shadow-[0_2px_8px_-2px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_24px_-4px_rgba(15,23,42,0.08)] hover:border-slate-300/90 active:scale-[0.99] transition-all text-left"
                 >
                   {/* Dark Rounded Square Icon Badge */}
-                  <div className="h-7 w-7 rounded-lg bg-slate-900 flex items-center justify-center shrink-0 mb-3 group-hover:bg-[#10b981] transition-colors">
+                  <div className="h-7 w-7 rounded-lg bg-slate-900 flex items-center justify-center shrink-0 mb-3 group-hover:bg-[#0022f4] transition-colors">
                     {card.icon}
                   </div>
                   
-                  <span className="text-sm font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                  <span className="text-sm font-semibold text-slate-900 group-hover:text-[#0022f4] transition-colors">
                     {card.title}
                   </span>
                   <span className="text-xs text-slate-500 mt-1 leading-snug line-clamp-2">
@@ -313,7 +313,7 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
                   /* Agent message card */
                   <div className="w-full max-w-3xl flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-slate-50/60 p-5 sm:p-6 shadow-sm">
                     <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-3">
-                      <div className="h-6 w-6 rounded-full bg-emerald-500/20 text-emerald-600 flex items-center justify-center font-bold text-xs ring-1 ring-emerald-500/40">
+                      <div className="h-6 w-6 rounded-full bg-[#0022f4]/15 text-[#0022f4] flex items-center justify-center font-bold text-xs ring-1 ring-[#0022f4]/30">
                         ⚡
                       </div>
                       <span className="text-xs font-semibold uppercase tracking-wider text-slate-700">
@@ -344,7 +344,7 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
                               key={idx}
                               className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs"
                             >
-                              <span className="mt-1 h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                              <span className="mt-1 h-2 w-2 rounded-full bg-[#0022f4] shrink-0" />
                               <div className="flex flex-col">
                                 <span className="font-mono text-xs font-semibold text-slate-900">
                                   {finding.nodeId}
@@ -438,7 +438,7 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
             {/* Loading indicator */}
             {loading && (
               <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 max-w-sm text-slate-600 text-xs animate-pulse">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0022f4] border-t-transparent" />
                 <span>Security Agent analyzing GraphRAG...</span>
               </div>
             )}
@@ -525,14 +525,23 @@ export default function QAPanel({ projectId, userName = 'Maya', onAsk }: QAPanel
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="h-8 w-8 rounded-xl bg-slate-900 hover:bg-black active:scale-95 disabled:opacity-40 disabled:hover:bg-slate-900 text-white flex items-center justify-center shadow-xs transition-all"
+                className="h-8 w-8 rounded-xl bg-[#0022f4] hover:bg-[#001ad4] active:scale-95 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-xs transition-all"
                 title="Send Message"
               >
                 {loading ? (
                   <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 ) : (
-                  <svg className="w-3.5 h-3.5 transform -rotate-45 translate-x-0.5 -translate-y-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  <svg
+                    className="w-4 h-4 translate-x-[0.5px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" fill="currentColor" fillOpacity="0.2" />
                   </svg>
                 )}
               </button>
